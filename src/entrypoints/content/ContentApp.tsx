@@ -1,4 +1,5 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { NoteBubble } from "@/components/NoteBubble";
 import { NoteComposer } from "@/components/NoteComposer";
 import { SelectionToolbar } from "@/components/SelectionToolbar";
 import {
@@ -9,7 +10,7 @@ import {
   type NoteColor,
   type TextAnchor,
 } from "@/core";
-import { saveNote } from "@/services/notes";
+import { deleteNote, saveNote } from "@/services/notes";
 import {
   type AnchorSource,
   useAnchoredPosition,
@@ -19,6 +20,7 @@ import {
   usePageUrl,
   useSettings,
 } from "./hooks";
+import { useHighlightBubble } from "./useHighlightBubble";
 import { useHighlights } from "./useHighlights";
 import { clearSelection, useSelection } from "./useSelection";
 
@@ -38,13 +40,23 @@ export function ContentApp() {
   const { enabled } = useSettings();
   const url = usePageUrl();
   const notes = useNotes(url);
-  useHighlights(notes, enabled);
+  const { highlighter } = useHighlights(notes, enabled);
 
   const selection = useSelection(enabled);
   const [draft, setDraft] = useState<Draft | null>(null);
+  const bubble = useHighlightBubble(enabled && draft === null);
+  const bubbleNote = notes.find((note) => note.id === bubble.target?.id) ?? null;
 
   const toolbar = useAnchoredPosition<HTMLDivElement>(draft ? null : (selection?.range ?? null));
   const composer = useAnchoredPosition<HTMLDivElement>(draft?.target ?? null);
+  const bubblePanel = useAnchoredPosition<HTMLDivElement>(
+    bubbleNote ? (bubble.target?.element ?? null) : null,
+  );
+
+  // The highlight under the open bubble is emphasised.
+  useEffect(() => {
+    highlighter.setActive(bubbleNote ? (bubble.target?.id ?? null) : null);
+  }, [highlighter, bubbleNote, bubble.target?.id]);
 
   const closeDraft = useCallback(() => setDraft(null), []);
   useEscapeKey(closeDraft, draft !== null);
@@ -91,6 +103,31 @@ export function ContentApp() {
     });
   }, [selection]);
 
+  const handleEditNote = useCallback(() => {
+    const target = bubble.target;
+    const note = notes.find((candidate) => candidate.id === target?.id);
+    if (!target || !note) return;
+
+    bubble.close();
+    setDraft({
+      target: target.element,
+      anchor: note.anchor,
+      quote: note.anchor.exact,
+      color: note.color,
+      comment: note.comment,
+      noteId: note.id,
+      createdAt: note.createdAt,
+    });
+  }, [bubble, notes]);
+
+  const handleDeleteNote = useCallback(() => {
+    const id = bubble.target?.id;
+    if (!id) return;
+
+    bubble.close();
+    deleteNote(url, id);
+  }, [bubble, url]);
+
   const handleSave = useCallback(() => {
     if (!draft) return;
 
@@ -123,6 +160,21 @@ export function ContentApp() {
           onColorChange={(color) => setDraft((current) => current && { ...current, color })}
           onSave={handleSave}
           onCancel={closeDraft}
+        />
+      )}
+      {!draft && bubbleNote && bubble.target && (
+        <NoteBubble
+          panelRef={bubblePanel.ref}
+          style={bubblePanel.style}
+          placement={bubblePanel.position?.placement ?? "above"}
+          tailOffset={bubblePanel.position?.tailOffset ?? 16}
+          note={bubbleNote}
+          pinned={bubble.target.pinned}
+          onEdit={handleEditNote}
+          onDelete={handleDeleteNote}
+          onClose={bubble.close}
+          onMouseEnter={bubble.hold}
+          onMouseLeave={bubble.release}
         />
       )}
       {!draft && selection && (

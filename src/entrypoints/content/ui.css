@@ -253,3 +253,104 @@
 .fk-button--primary:hover {
   background: #1a6fc4;
 }
+
+/* --- note bubble -------------------------------------------------------- */
+
+.fk-bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 320px;
+  min-width: 180px;
+  padding: 10px 12px;
+  border-top: 3px solid var(--fk-bubble-color, #f5c96b);
+}
+
+.fk-bubble--yellow {
+  --fk-bubble-color: #f5c96b;
+}
+.fk-bubble--green {
+  --fk-bubble-color: #9ecb9e;
+}
+.fk-bubble--blue {
+  --fk-bubble-color: #8fc0d9;
+}
+.fk-bubble--pink {
+  --fk-bubble-color: #e3a7c2;
+}
+.fk-bubble--purple {
+  --fk-bubble-color: #bfa3d1;
+}
+
+/* The tail that makes it a speech bubble, pointing back at the highlight. */
+.fk-bubble::after {
+  content: "";
+  position: absolute;
+  left: var(--fk-tail-offset, 16px);
+  width: 0;
+  height: 0;
+  margin-left: -6px;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+}
+
+.fk-bubble--above::after {
+  top: 100%;
+  border-top: 7px solid var(--fk-surface);
+}
+
+.fk-bubble--below::after {
+  bottom: 100%;
+  border-bottom: 7px solid var(--fk-bubble-color, #f5c96b);
+}
+
+.fk-bubble__comment {
+  margin: 0;
+  color: var(--fk-text);
+  font-size: 13.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.fk-bubble__comment--empty {
+  color: var(--fk-text-muted);
+  font-size: 12.5px;
+}
+
+.fk-bubble__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fk-bubble__time {
+  color: var(--fk-text-muted);
+  font-size: 11px;
+}
+
+.fk-bubble__actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.fk-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--fk-text-muted);
+  cursor: pointer;
+}
+
+.fk-icon-button:hover {
+  background: var(--fk-hover);
+  color: var(--fk-text);
+}
