@@ -3,9 +3,11 @@
 ## Project Structure & Module Organization
 - `src/` contains the extension source code.
 - `src/entrypoints/` defines extension entrypoints (background, content, popup, etc.).
-- `src/core/` holds pure, side-effect-free logic (create as needed); tests live alongside as `.spec.ts`.
+- `src/core/` holds pure logic — note types, text anchoring, formatting; tests live alongside as `.spec.ts`.
 - `src/components/` contains React UI pieces; `src/services/` hosts shared service logic
-  (browser APIs, storage, messaging).
+  (storage, highlight rendering, messaging).
+- `src/testing/` holds test helpers: a fake `chrome.storage` and the Vitest setup file
+  that fills in `Range.getBoundingClientRect`, which jsdom does not implement.
 - `src/assets/` stores assets imported from code; `public/` stores files copied as-is
   (`public/icon/*.png` is picked up by WXT as the extension icon).
 - Build output lands in `dist/`; coverage reports in `coverage/`.
@@ -34,7 +36,10 @@
 ## Testing Guidelines
 - Framework: Vitest with the `jsdom` environment and globals enabled.
 - Co-locate tests with the module under test.
-- Stub `chrome.*` APIs with `vi.stubGlobal` (see `src/services/settings.spec.ts`).
+- Stub `chrome.*` APIs with `vi.stubGlobal` and `createFakeChromeStorage`
+  (see `src/services/notes.spec.ts`).
+- `src/entrypoints/content/ContentApp.spec.tsx` drives the real UI in jsdom; extend it when
+  a change affects the selection, composer or bubble flow.
 - Run `pnpm run test` before PRs.
 
 ## Commit & Pull Request Guidelines
