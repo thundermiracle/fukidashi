@@ -7,9 +7,11 @@ export default defineConfig({
   outDir: "dist",
   manifest: {
     name: "Fukidashi",
-    description: "Chrome extension",
+    description: "Add comments and notes to any web page",
     version: "0.1.0",
-    permissions: ["storage"],
+    // activeTab covers the popup reading the current tab's URL and messaging
+    // its content script; no broad host permission is needed for that.
+    permissions: ["storage", "activeTab"],
     browser_specific_settings: {
       gecko: {
         id: "fukidashi@thundermiracle.com",

@@ -22,6 +22,7 @@ import {
 } from "./hooks";
 import { useHighlightBubble } from "./useHighlightBubble";
 import { useHighlights } from "./useHighlights";
+import { useNoteMessages } from "./useNoteMessages";
 import { clearSelection, useSelection } from "./useSelection";
 
 interface Draft {
@@ -41,6 +42,8 @@ export function ContentApp() {
   const url = usePageUrl();
   const notes = useNotes(url);
   const { highlighter } = useHighlights(notes, enabled);
+
+  useNoteMessages(highlighter);
 
   const selection = useSelection(enabled);
   const [draft, setDraft] = useState<Draft | null>(null);

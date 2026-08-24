@@ -1,34 +1,221 @@
-#root {
-  width: 320px;
-  margin: 0 auto;
-  padding: 1.5rem;
+.fk-popup {
+  display: flex;
+  flex-direction: column;
+  max-height: 520px;
+}
+
+/* --- header ------------------------------------------------------------- */
+
+.fk-popup__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--fk-divider);
+}
+
+.fk-popup__logo {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+}
+
+.fk-popup__titles {
+  flex: 1;
+  min-width: 0;
+}
+
+.fk-popup__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.fk-popup__page {
+  margin: 0;
+  color: var(--fk-text-muted);
+  font-size: 11.5px;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fk-popup__count {
+  min-width: 22px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: var(--fk-surface-sunken);
+  color: var(--fk-text-muted);
+  font-size: 11.5px;
+  font-weight: 600;
   text-align: center;
 }
 
-.logo {
-  height: 6em;
-  padding: 0.5em;
-  will-change: filter;
-  transition: filter 300ms;
+/* --- body --------------------------------------------------------------- */
+
+.fk-popup__body {
+  flex: 1;
+  overflow-y: auto;
 }
 
-.logo:hover {
-  filter: drop-shadow(0 0 2em #2f80ed);
+.fk-popup__status {
+  margin: 0;
+  padding: 24px 14px;
+  color: var(--fk-text-muted);
+  font-size: 13px;
+  text-align: center;
 }
 
-.card {
-  padding: 1em;
+.fk-list {
+  margin: 0;
+  padding: 6px;
+  list-style: none;
 }
 
-.settings-container {
-  padding: 15px;
-  background-color: #f5f5f5;
-  border-radius: 8px;
+.fk-list__item {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  border-radius: 6px;
+}
+
+.fk-list__item:hover {
+  background: var(--fk-hover);
+}
+
+.fk-list__button {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  gap: 10px;
+  padding: 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
   text-align: left;
+  cursor: pointer;
 }
 
-@media (prefers-color-scheme: dark) {
-  .settings-container {
-    background-color: #333;
-  }
+.fk-list__bar {
+  flex: none;
+  width: 3px;
+  border-radius: 2px;
+}
+
+.fk-list__bar--yellow {
+  background: #f5c96b;
+}
+.fk-list__bar--green {
+  background: #9ecb9e;
+}
+.fk-list__bar--blue {
+  background: #8fc0d9;
+}
+.fk-list__bar--pink {
+  background: #e3a7c2;
+}
+.fk-list__bar--purple {
+  background: #bfa3d1;
+}
+
+.fk-list__content {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.fk-list__quote {
+  color: var(--fk-text-muted);
+  font-size: 11.5px;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fk-list__comment {
+  color: var(--fk-text);
+  font-size: 13px;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.fk-list__time {
+  color: var(--fk-text-muted);
+  font-size: 11px;
+}
+
+.fk-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--fk-text-muted);
+  cursor: pointer;
+}
+
+.fk-icon-button:hover {
+  background: var(--fk-hover);
+  color: var(--fk-text);
+}
+
+.fk-list__delete {
+  align-self: center;
+  margin-right: 6px;
+  opacity: 0;
+}
+
+.fk-list__item:hover .fk-list__delete,
+.fk-list__delete:focus-visible {
+  opacity: 1;
+}
+
+/* --- empty state -------------------------------------------------------- */
+
+.fk-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 34px 24px;
+  text-align: center;
+}
+
+.fk-empty__icon {
+  width: 22px;
+  height: 22px;
+  color: var(--fk-text-muted);
+}
+
+.fk-empty__title {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.fk-empty__hint {
+  margin: 0;
+  color: var(--fk-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* --- footer ------------------------------------------------------------- */
+
+.fk-popup__footer {
+  padding: 6px 14px 10px;
+  border-top: 1px solid var(--fk-divider);
 }
