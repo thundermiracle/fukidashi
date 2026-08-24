@@ -29,3 +29,18 @@ export async function loadSettings(): Promise<SettingsType> {
 export async function saveSetting(key: string, value: boolean): Promise<void> {
   await chrome.storage.local.set({ [key]: value });
 }
+
+/** Calls `listener` whenever the settings change, from any tab or the popup. */
+export function watchSettings(listener: (settings: SettingsType) => void): () => void {
+  const handleChange = (
+    changes: Record<string, chrome.storage.StorageChange>,
+    areaName: string,
+  ) => {
+    if (areaName !== "local") return;
+    if (!Object.values(SETTINGS_KEYS).some((key) => key in changes)) return;
+    loadSettings().then(listener);
+  };
+
+  chrome.storage.onChanged.addListener(handleChange);
+  return () => chrome.storage.onChanged.removeListener(handleChange);
+}
