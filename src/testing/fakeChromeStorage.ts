@@ -18,7 +18,14 @@ export function createFakeChromeStorage(initial: Record<string, unknown> = {}) {
     chrome: {
       storage: {
         local: {
-          get: async (key: string) => (key in data ? { [key]: data[key] } : {}),
+          get: async (keys: string | string[]) => {
+            const wanted = Array.isArray(keys) ? keys : [keys];
+            const found: Record<string, unknown> = {};
+            for (const key of wanted) {
+              if (key in data) found[key] = data[key];
+            }
+            return found;
+          },
           set: async (items: Record<string, unknown>) => {
             const changes: Record<string, chrome.storage.StorageChange> = {};
             for (const [key, value] of Object.entries(items)) {
