@@ -8,7 +8,8 @@ export default defineConfig({
   manifest: {
     name: "Fukidashi",
     description: "Add comments and notes to any web page",
-    version: "0.1.0",
+    // The version is taken from package.json, which is what the release
+    // workflow bumps — a copy here would ship stale.
     // activeTab covers the popup reading the current tab's URL and messaging
     // its content script; no broad host permission is needed for that.
     permissions: ["storage", "activeTab"],
