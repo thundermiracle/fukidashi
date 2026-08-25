@@ -134,6 +134,22 @@ describe("ContentApp", () => {
     expect(container.querySelector(".fk-bubble")?.textContent).toContain("a memo to read later");
   });
 
+  it("draws the highlight again when the page rewrites the text", async () => {
+    await renderApp();
+    await selectAndOpenToolbar("brown fox");
+    await click(container.querySelector(".fk-swatch--green"));
+
+    const page = document.getElementById("page");
+    if (!page) throw new Error("the page paragraph is missing");
+    // What translating a page does: the text is replaced, highlights and all.
+    await act(async () => {
+      page.innerHTML = "The quick brown fox jumps over the lazy dog.";
+      await new Promise((resolve) => setTimeout(resolve, 600));
+    });
+
+    expect(document.querySelector("mark")?.textContent).toBe("brown fox");
+  });
+
   it("restores the highlights stored for the page", async () => {
     const note: Note = {
       id: "stored",
