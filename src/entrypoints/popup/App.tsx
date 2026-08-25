@@ -93,7 +93,16 @@ function App() {
         openPage(listedUrl);
         return;
       }
-      if (await requestFocusNote(tabId, note.id)) window.close();
+      if (await requestFocusNote(tabId, note.id)) {
+        window.close();
+        return;
+      }
+      // The page has no content script to answer — it was loaded before the
+      // extension was installed or updated. Reloading brings the script in,
+      // and the jump waits for it the same way it does for a new tab.
+      await setPendingFocus(listedUrl, note.id);
+      chrome.tabs.reload(tabId);
+      window.close();
     },
     [currentUrl, listedUrl, openPage, tabId],
   );

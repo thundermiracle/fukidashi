@@ -25,6 +25,7 @@ let container: HTMLDivElement;
 let root: Root | null = null;
 let createTab: ReturnType<typeof vi.fn>;
 let sendMessage: ReturnType<typeof vi.fn>;
+let reloadTab: ReturnType<typeof vi.fn>;
 
 async function renderPopup() {
   root = createRoot(container);
@@ -61,6 +62,7 @@ beforeEach(async () => {
   storage = createFakeChromeStorage();
   createTab = vi.fn();
   sendMessage = vi.fn(async () => undefined);
+  reloadTab = vi.fn();
 
   vi.stubGlobal("chrome", {
     ...storage.chrome,
@@ -68,6 +70,7 @@ beforeEach(async () => {
       query: vi.fn(async () => [{ id: TAB_ID, url: CURRENT_PAGE }]),
       create: createTab,
       sendMessage,
+      reload: reloadTab,
     },
   });
   vi.stubGlobal("close", vi.fn());
@@ -143,6 +146,21 @@ describe("popup", () => {
 
     expect(sendMessage).toHaveBeenCalledWith(TAB_ID, expect.objectContaining({ noteId: "a" }));
     expect(createTab).not.toHaveBeenCalled();
+  });
+
+  it("reloads the page when it cannot answer, and leaves the jump behind", async () => {
+    // sendMessage rejects when the tab has no content script — the page was
+    // loaded before the extension was installed or updated.
+    sendMessage.mockRejectedValue(new Error("Receiving end does not exist"));
+    await renderPopup();
+    await click(container.querySelector(".fk-list__button"));
+
+    expect(reloadTab).toHaveBeenCalledWith(TAB_ID);
+    expect(storage.data["fukidashi:pending-focus"]).toMatchObject({
+      url: CURRENT_PAGE,
+      noteId: "a",
+    });
+    expect(window.close).toHaveBeenCalled();
   });
 
   it("goes to the page first when the note is on another one", async () => {
