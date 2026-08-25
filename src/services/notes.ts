@@ -1,4 +1,4 @@
-import { type Note, normalizePageUrl } from "@/core";
+import { lastTouched, type Note, normalizePageUrl, type PageNotes } from "@/core";
 
 const NOTES_KEY_PREFIX = "fukidashi:notes:";
 
@@ -11,10 +11,14 @@ function byCreatedAt(a: Note, b: Note): number {
   return a.createdAt - b.createdAt;
 }
 
+/** Reads back what a storage entry holds, oldest note first. */
+function toNotes(value: unknown): Note[] {
+  return Array.isArray(value) ? [...(value as Note[])].sort(byCreatedAt) : [];
+}
+
 async function readNotes(key: string): Promise<Note[]> {
   const stored = await chrome.storage.local.get(key);
-  const notes = stored[key];
-  return Array.isArray(notes) ? [...(notes as Note[])].sort(byCreatedAt) : [];
+  return toNotes(stored[key]);
 }
 
 async function writeNotes(key: string, notes: Note[]): Promise<void> {
@@ -55,6 +59,24 @@ export async function deleteNote(url: string, id: string): Promise<void> {
 }
 
 /**
+ * Every page that has notes, the most recently annotated first. The pages are
+ * read out of the keys themselves, so nothing has to keep an index in step.
+ */
+export async function loadAllPageNotes(): Promise<PageNotes[]> {
+  const stored = await chrome.storage.local.get(null);
+  const pages: PageNotes[] = [];
+
+  for (const [key, value] of Object.entries(stored)) {
+    if (!key.startsWith(NOTES_KEY_PREFIX)) continue;
+
+    const notes = toNotes(value);
+    if (notes.length > 0) pages.push({ url: key.slice(NOTES_KEY_PREFIX.length), notes });
+  }
+
+  return pages.sort((a, b) => lastTouched(b.notes) - lastTouched(a.notes));
+}
+
+/**
  * Calls `listener` whenever this page's notes change anywhere — another tab on
  * the same page, or the popup. Returns an unsubscribe function.
  */
@@ -66,8 +88,22 @@ export function watchNotes(url: string, listener: (notes: Note[]) => void): () =
     areaName: string,
   ) => {
     if (areaName !== "local" || !(key in changes)) return;
-    const notes = changes[key].newValue;
-    listener(Array.isArray(notes) ? [...(notes as Note[])].sort(byCreatedAt) : []);
+    listener(toNotes(changes[key].newValue));
+  };
+
+  chrome.storage.onChanged.addListener(handleChange);
+  return () => chrome.storage.onChanged.removeListener(handleChange);
+}
+
+/** The same, for the popup's list of every annotated page. */
+export function watchAllNotes(listener: (pages: PageNotes[]) => void): () => void {
+  const handleChange = (
+    changes: Record<string, chrome.storage.StorageChange>,
+    areaName: string,
+  ) => {
+    if (areaName !== "local") return;
+    if (!Object.keys(changes).some((key) => key.startsWith(NOTES_KEY_PREFIX))) return;
+    loadAllPageNotes().then(listener);
   };
 
   chrome.storage.onChanged.addListener(handleChange);

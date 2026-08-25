@@ -1,7 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Note } from "@/core";
 import { createFakeChromeStorage } from "@/testing/fakeChromeStorage";
-import { deleteNote, loadNotes, notesKey, saveNote, watchNotes } from "./notes";
+import {
+  deleteNote,
+  loadAllPageNotes,
+  loadNotes,
+  notesKey,
+  saveNote,
+  watchAllNotes,
+  watchNotes,
+} from "./notes";
 
 const PAGE = "https://example.com/docs?page=2#intro";
 
@@ -74,6 +82,65 @@ describe("deleteNote", () => {
     await deleteNote(PAGE, "a");
 
     expect(Object.keys(storage.data)).toEqual([]);
+  });
+});
+
+describe("loadAllPageNotes", () => {
+  it("returns nothing when no page has been annotated", async () => {
+    await expect(loadAllPageNotes()).resolves.toEqual([]);
+  });
+
+  it("lists every annotated page, most recently annotated first", async () => {
+    await saveNote("https://old.example/a", makeNote("a", 100));
+    await saveNote("https://fresh.example/b", makeNote("b", 900));
+
+    await expect(loadAllPageNotes()).resolves.toMatchObject([
+      { url: "https://fresh.example/b", notes: [{ id: "b" }] },
+      { url: "https://old.example/a", notes: [{ id: "a" }] },
+    ]);
+  });
+
+  it("keys pages by the URL notes are stored under, not the one visited", async () => {
+    await saveNote("https://example-com.translate.goog/docs?_x_tr_tl=ja", makeNote("a", 100));
+
+    await expect(loadAllPageNotes()).resolves.toMatchObject([{ url: "https://example.com/docs" }]);
+  });
+
+  it("ignores storage entries that are not notes", async () => {
+    await storage.chrome.storage.local.set({ enabled: false });
+
+    await expect(loadAllPageNotes()).resolves.toEqual([]);
+  });
+});
+
+describe("watchAllNotes", () => {
+  /** The listener is called after a read of its own, so let that settle. */
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  it("reports a note written on any page until it is unsubscribed", async () => {
+    const listener = vi.fn();
+    const unwatch = watchAllNotes(listener);
+
+    await saveNote(PAGE, makeNote("a", 100));
+    await settle();
+    expect(listener).toHaveBeenCalledWith([
+      expect.objectContaining({ url: "https://example.com/docs?page=2" }),
+    ]);
+
+    unwatch();
+    await saveNote("https://example.com/other", makeNote("b", 200));
+    await settle();
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores changes to anything but notes", async () => {
+    const listener = vi.fn();
+    watchAllNotes(listener);
+
+    await storage.chrome.storage.local.set({ enabled: false });
+    await settle();
+
+    expect(listener).not.toHaveBeenCalled();
   });
 });
 

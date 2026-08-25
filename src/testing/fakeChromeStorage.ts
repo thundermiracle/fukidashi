@@ -18,7 +18,10 @@ export function createFakeChromeStorage(initial: Record<string, unknown> = {}) {
     chrome: {
       storage: {
         local: {
-          get: async (keys: string | string[]) => {
+          // `null` means "everything", the way chrome.storage.local.get does.
+          get: async (keys: string | string[] | null) => {
+            if (keys === null) return { ...data };
+
             const wanted = Array.isArray(keys) ? keys : [keys];
             const found: Record<string, unknown> = {};
             for (const key of wanted) {
