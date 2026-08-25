@@ -164,6 +164,7 @@ export function ContentApp() {
         <NoteComposer
           panelRef={composer.ref}
           style={composer.style}
+          placed={composer.position !== null}
           quote={draft.quote}
           comment={draft.comment}
           color={draft.color}

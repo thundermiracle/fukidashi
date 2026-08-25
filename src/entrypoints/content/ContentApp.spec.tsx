@@ -69,6 +69,29 @@ function storedNotes(): Note[] {
   return key ? (storage.data[key] as Note[]) : [];
 }
 
+/**
+ * How the composer panel was styled each time it asked for focus. jsdom has no
+ * layout, so it will happily focus a hidden element and `activeElement` alone
+ * proves nothing; a browser refuses, which is what this watches for.
+ */
+function watchComposerFocus(): { calls: string[]; stop: () => void } {
+  const calls: string[] = [];
+  const real = HTMLTextAreaElement.prototype.focus;
+
+  HTMLTextAreaElement.prototype.focus = function record(this: HTMLTextAreaElement) {
+    const panel = this.closest(".fk-composer");
+    calls.push(panel instanceof HTMLElement ? panel.style.visibility || "visible" : "no panel");
+    return real.call(this);
+  };
+
+  return {
+    calls,
+    stop: () => {
+      HTMLTextAreaElement.prototype.focus = real;
+    },
+  };
+}
+
 function storedTitle(): string | undefined {
   const key = Object.keys(storage.data).find((name) => name.startsWith("fukidashi:title:"));
   return key ? (storage.data[key] as string) : undefined;
@@ -224,6 +247,44 @@ describe("ContentApp", () => {
 
     expect(container.querySelector(".fk-bubble")?.textContent).toContain("waiting to be read");
     expect(storage.data["fukidashi:pending-focus"]).toBeUndefined();
+  });
+
+  it("puts the caret in the composer, once the panel is placed", async () => {
+    const focusing = watchComposerFocus();
+    try {
+      await renderApp();
+      await selectAndOpenToolbar("lazy dog");
+      await click(container.querySelector(".fk-action"));
+
+      const textarea = container.querySelector("textarea");
+      expect(document.activeElement).toBe(textarea);
+      // Never while the panel is still hidden for its measuring frame, and
+      // never again afterwards, which would fight the caret.
+      expect(focusing.calls).toEqual(["visible"]);
+    } finally {
+      focusing.stop();
+    }
+  });
+
+  it("opens an edited memo with the caret at its end", async () => {
+    await renderApp();
+    await selectAndOpenToolbar("brown fox");
+    await click(container.querySelector(".fk-action"));
+    const textarea = container.querySelector("textarea");
+    if (!textarea) throw new Error("the composer did not open");
+    await type(textarea, "half a thought");
+    await click(container.querySelector(".fk-button--primary"));
+
+    const mark = document.querySelector("mark");
+    await act(async () => {
+      mark?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    });
+    await click(container.querySelector('[title="Edit note"]'));
+
+    const editing = container.querySelector("textarea");
+    expect(document.activeElement).toBe(editing);
+    expect(editing?.selectionStart).toBe("half a thought".length);
   });
 
   it("remembers what the page calls itself once it carries a note", async () => {

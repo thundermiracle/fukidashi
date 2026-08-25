@@ -7,6 +7,8 @@ const SAVE_HINT = navigator.userAgent.includes("Mac") ? "⌘ + Enter" : "Ctrl + 
 interface NoteComposerProps {
   panelRef: RefObject<HTMLDivElement | null>;
   style: React.CSSProperties;
+  /** Whether the panel has been measured and placed against its anchor. */
+  placed: boolean;
   quote: string;
   comment: string;
   color: NoteColor;
@@ -20,6 +22,7 @@ interface NoteComposerProps {
 export function NoteComposer({
   panelRef,
   style,
+  placed,
   quote,
   comment,
   color,
@@ -30,14 +33,17 @@ export function NoteComposer({
 }: NoteComposerProps) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  // Not before the panel is placed: it spends its first frame hidden so it can
+  // be measured, and a hidden element both refuses focus and does not take it
+  // back once it is shown. Placement happens once, so neither does this.
   useEffect(() => {
-    // Only on mount: re-focusing on every keystroke would fight the caret.
     const input = inputRef.current;
-    if (!input) return;
+    if (!input || !placed) return;
 
     input.focus();
+    // An edited memo is opened at its end, ready to be carried on.
     input.setSelectionRange(input.value.length, input.value.length);
-  }, []);
+  }, [placed]);
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === "Escape") {
