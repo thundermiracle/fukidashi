@@ -1,28 +1,24 @@
 import { useEffect } from "react";
 import type { Highlighter } from "@/services/highlighter";
-import { onScrollToNote } from "@/services/messages";
+import { onFocusNote } from "@/services/messages";
 
-/** How long a note stays emphasised after the popup jumps to it. */
-const EMPHASIS_DURATION = 2000;
+/**
+ * Brings the note the popup asks for into view and hands it to `onFound`, so
+ * that picking a note out of a list reads it as well as finds it.
+ */
+export function useNoteMessages(
+  highlighter: Highlighter,
+  onFound: (noteId: string, mark: HTMLElement) => void,
+) {
+  useEffect(
+    () =>
+      onFocusNote((noteId) => {
+        const [mark] = highlighter.marksFor(noteId);
+        if (!mark) return;
 
-/** Scrolls to the note the popup asks for and flashes its highlight. */
-export function useNoteMessages(highlighter: Highlighter) {
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
-
-    const unsubscribe = onScrollToNote((noteId) => {
-      const [mark] = highlighter.marksFor(noteId);
-      if (!mark) return;
-
-      mark.scrollIntoView({ behavior: "smooth", block: "center" });
-      highlighter.setActive(noteId);
-      clearTimeout(timer);
-      timer = setTimeout(() => highlighter.setActive(null), EMPHASIS_DURATION);
-    });
-
-    return () => {
-      unsubscribe();
-      clearTimeout(timer);
-    };
-  }, [highlighter]);
+        mark.scrollIntoView({ behavior: "smooth", block: "center" });
+        onFound(noteId, mark);
+      }),
+    [highlighter, onFound],
+  );
 }

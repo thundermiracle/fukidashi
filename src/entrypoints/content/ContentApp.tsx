@@ -43,12 +43,14 @@ export function ContentApp() {
   const notes = useNotes(url);
   const { highlighter } = useHighlights(notes, enabled);
 
-  useNoteMessages(highlighter);
-
   const selection = useSelection(enabled);
   const [draft, setDraft] = useState<Draft | null>(null);
   const bubble = useHighlightBubble(enabled && draft === null);
   const bubbleNote = notes.find((note) => note.id === bubble.target?.id) ?? null;
+
+  // Picking a note in the popup jumps to it and opens its bubble, which is
+  // also what emphasises the highlight underneath.
+  useNoteMessages(highlighter, bubble.open);
 
   const toolbar = useAnchoredPosition<HTMLDivElement>(draft ? null : (selection?.range ?? null));
   const composer = useAnchoredPosition<HTMLDivElement>(draft?.target ?? null);

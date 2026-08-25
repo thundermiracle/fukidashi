@@ -2,6 +2,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Note } from "@/core";
+import { FOCUS_NOTE } from "@/services/messages";
 import { createFakeChromeStorage } from "@/testing/fakeChromeStorage";
 import { ContentApp } from "./ContentApp";
 
@@ -10,6 +11,7 @@ const PAGE_HTML = '<p id="page">The quick brown fox jumps over the lazy dog.</p>
 let storage: ReturnType<typeof createFakeChromeStorage>;
 let container: HTMLDivElement;
 let root: Root | null = null;
+let messageListeners: Array<(message: unknown) => void>;
 
 /** Lets React flush effects and the fake storage settle. */
 async function settle(ms = 5) {
@@ -70,9 +72,17 @@ function storedNotes(): Note[] {
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   storage = createFakeChromeStorage();
+  messageListeners = [];
   vi.stubGlobal("chrome", {
     ...storage.chrome,
-    runtime: { onMessage: { addListener: vi.fn(), removeListener: vi.fn() } },
+    runtime: {
+      onMessage: {
+        addListener: (listener: (message: unknown) => void) => messageListeners.push(listener),
+        removeListener: (listener: (message: unknown) => void) => {
+          messageListeners = messageListeners.filter((known) => known !== listener);
+        },
+      },
+    },
   });
 
   document.body.innerHTML = PAGE_HTML;
@@ -148,6 +158,28 @@ describe("ContentApp", () => {
     });
 
     expect(document.querySelector("mark")?.textContent).toBe("brown fox");
+  });
+
+  it("opens the bubble of the note the popup picked", async () => {
+    await renderApp();
+    await selectAndOpenToolbar("brown fox");
+    await click(container.querySelector(".fk-action"));
+    const textarea = container.querySelector("textarea");
+    if (!textarea) throw new Error("the composer did not open");
+    await type(textarea, "the note the popup points at");
+    await click(container.querySelector(".fk-button--primary"));
+
+    await act(async () => {
+      for (const listener of messageListeners) {
+        listener({ type: FOCUS_NOTE, noteId: storedNotes()[0].id });
+      }
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    });
+
+    expect(container.querySelector(".fk-bubble")?.textContent).toContain(
+      "the note the popup points at",
+    );
+    expect(document.querySelector("mark")?.getAttribute("data-fukidashi-active")).toBe("true");
   });
 
   it("restores the highlights stored for the page", async () => {

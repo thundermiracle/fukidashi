@@ -18,3 +18,8 @@ if (typeof Range.prototype.getBoundingClientRect !== "function") {
     } as DOMRect;
   };
 }
+
+/** For the same reason there is nothing to scroll, which is fine to ignore. */
+if (typeof Element.prototype.scrollIntoView !== "function") {
+  Element.prototype.scrollIntoView = function noScrolling(): void {};
+}

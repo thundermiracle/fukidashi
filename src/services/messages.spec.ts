@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { isScrollToNoteMessage, SCROLL_TO_NOTE } from "./messages";
+import { FOCUS_NOTE, isFocusNoteMessage } from "./messages";
 
-describe("isScrollToNoteMessage", () => {
+describe("isFocusNoteMessage", () => {
   it("accepts the message the popup sends", () => {
-    expect(isScrollToNoteMessage({ type: SCROLL_TO_NOTE, noteId: "abc" })).toBe(true);
+    expect(isFocusNoteMessage({ type: FOCUS_NOTE, noteId: "abc" })).toBe(true);
   });
 
   it("rejects anything else on the shared message channel", () => {
-    expect(isScrollToNoteMessage({ type: "other", noteId: "abc" })).toBe(false);
-    expect(isScrollToNoteMessage({ type: SCROLL_TO_NOTE })).toBe(false);
-    expect(isScrollToNoteMessage(null)).toBe(false);
-    expect(isScrollToNoteMessage("hello")).toBe(false);
+    expect(isFocusNoteMessage({ type: "other", noteId: "abc" })).toBe(false);
+    expect(isFocusNoteMessage({ type: FOCUS_NOTE })).toBe(false);
+    expect(isFocusNoteMessage(null)).toBe(false);
+    expect(isFocusNoteMessage("hello")).toBe(false);
   });
 });

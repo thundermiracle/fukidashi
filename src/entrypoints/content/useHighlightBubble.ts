@@ -32,6 +32,13 @@ export function useHighlightBubble(enabled: boolean) {
   /** Keeps the bubble open while the pointer is on it. */
   const hold = useCallback(() => clearTimeout(hideTimer.current), []);
 
+  /** Opens the bubble of one highlight and leaves it open until dismissed. */
+  const open = useCallback((id: string, element: HTMLElement) => {
+    clearTimeout(showTimer.current);
+    clearTimeout(hideTimer.current);
+    setTarget({ id, element, pinned: true });
+  }, []);
+
   const release = useCallback(() => {
     clearTimeout(hideTimer.current);
     hideTimer.current = setTimeout(
@@ -67,11 +74,7 @@ export function useHighlightBubble(enabled: boolean) {
     const onClick = (event: MouseEvent) => {
       const mark = markAt(event.target);
       const id = mark?.getAttribute(HIGHLIGHT_ATTRIBUTE);
-      if (!mark || !id) return;
-
-      clearTimeout(showTimer.current);
-      clearTimeout(hideTimer.current);
-      setTarget({ id, element: mark, pinned: true });
+      if (mark && id) open(id, mark);
     };
 
     document.addEventListener("mouseover", onMouseOver, true);
@@ -85,7 +88,7 @@ export function useHighlightBubble(enabled: boolean) {
       clearTimeout(showTimer.current);
       clearTimeout(hideTimer.current);
     };
-  }, [enabled, close, hold, release]);
+  }, [enabled, close, hold, open, release]);
 
-  return { target, hold, release, close };
+  return { target, open, hold, release, close };
 }

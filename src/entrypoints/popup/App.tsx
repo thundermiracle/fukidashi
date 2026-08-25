@@ -14,7 +14,7 @@ import {
   type PageNotes,
   pageHost,
 } from "@/core";
-import { requestScrollToNote } from "@/services/messages";
+import { requestFocusNote } from "@/services/messages";
 import { deleteNote, loadAllPageNotes, watchAllNotes } from "@/services/notes";
 import { loadSettings, SETTINGS_KEYS, saveSetting } from "@/services/settings";
 import "./App.css";
@@ -90,7 +90,7 @@ function App() {
         openPage(listedUrl);
         return;
       }
-      if (await requestScrollToNote(tabId, note.id)) window.close();
+      if (await requestFocusNote(tabId, note.id)) window.close();
     },
     [currentUrl, listedUrl, openPage, tabId],
   );
