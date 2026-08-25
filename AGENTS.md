@@ -7,7 +7,8 @@
 - `src/components/` contains React UI pieces; `src/services/` hosts shared service logic
   (storage, highlight rendering, messaging).
 - `src/testing/` holds test helpers: a fake `chrome.storage` and the Vitest setup file
-  that fills in `Range.getBoundingClientRect`, which jsdom does not implement.
+  that fills in `Range.getBoundingClientRect` and `Element.scrollIntoView`, which jsdom
+  does not implement.
 - `src/assets/` stores assets imported from code; `public/` stores files copied as-is
   (`public/icon/*.png` is picked up by WXT as the extension icon).
 - Build output lands in `dist/`; coverage reports in `coverage/`.
@@ -40,6 +41,8 @@
   (see `src/services/notes.spec.ts`).
 - `src/entrypoints/content/ContentApp.spec.tsx` drives the real UI in jsdom; extend it when
   a change affects the selection, composer or bubble flow.
+- `src/entrypoints/popup/App.spec.tsx` does the same for the popup; extend it when a change
+  affects the note list, the site list or moving between them.
 - Run `pnpm run test` before PRs.
 
 ## Commit & Pull Request Guidelines

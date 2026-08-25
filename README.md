@@ -17,7 +17,15 @@ memo — and find it again the next time you open the page.
 - **Notes come back** — every note is stored per page and redrawn when the page
   is opened again, including single-page apps that change the URL in place.
 - **Page overview** — the popup lists the notes of the current page in reading
-  order; clicking one scrolls the page to it.
+  order; clicking one scrolls the page to it and opens its bubble.
+- **Everything you annotated** — the popup's second tab collects every page
+  carrying notes under the site it belongs to. Pick a page to read its notes,
+  or open it again in a tab; picking one of its notes opens the page and jumps
+  straight to it.
+- **Reads translations too** — a page opened through Google Translate is still
+  that page, so notes taken on either belong to the same list, and highlights
+  survive the text being swapped out. The memos themselves are left in the
+  language they were written in.
 
 ## Development
 
@@ -50,7 +58,7 @@ pnpm run dev
 
 ```
 src/
-├── core/          Anchoring notes to page text, types, pure helpers
+├── core/          Anchoring notes to page text, URLs, types, pure helpers
 ├── services/      Storage, highlight rendering, messaging
 ├── components/    React UI (toolbar, composer, bubble, list)
 ├── entrypoints/   content script, popup, background
@@ -66,6 +74,10 @@ context, so it can be found again after the page changes. See
 ## Limitations
 
 - Text inside iframes and inside a page's own shadow DOM is not annotated.
+- A note is anchored to the words it was taken on, so one written on a
+  translated page comes back with that translation, not with the original.
+  The popup lists it either way, but opening it from there goes to the
+  original page, where there is no translated text to jump to.
 - A note is lost when the page rewrites the text it was attached to; the popup
   still lists it, and the highlight returns if the text comes back.
 - Notes live in `chrome.storage.local`: they stay on this device and are not
