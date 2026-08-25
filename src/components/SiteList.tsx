@@ -36,6 +36,11 @@ export function SiteList({ sites, onSelect, onOpen }: SiteListProps) {
                   onClick={() => onSelect(page.url)}
                 >
                   <span className="fk-list__content">
+                    {page.title && (
+                      <span className="fk-page__title" title={page.title}>
+                        {page.title}
+                      </span>
+                    )}
                     <span className="fk-page__path" title={page.url}>
                       {formatPagePath(page.url)}
                     </span>

@@ -69,6 +69,16 @@ function storedNotes(): Note[] {
   return key ? (storage.data[key] as Note[]) : [];
 }
 
+function storedTitle(): string | undefined {
+  const key = Object.keys(storage.data).find((name) => name.startsWith("fukidashi:title:"));
+  return key ? (storage.data[key] as string) : undefined;
+}
+
+/** The URL notes of this page are stored under, the way the app normalizes it. */
+function pageUrl(): string {
+  return `${location.origin}${location.pathname}`;
+}
+
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   storage = createFakeChromeStorage();
@@ -194,7 +204,7 @@ describe("ContentApp", () => {
   });
 
   it("jumps to the note the popup picked before this page was open", async () => {
-    const page = `${location.origin}${location.pathname}`;
+    const page = pageUrl();
     await storage.chrome.storage.local.set({
       [`fukidashi:notes:${page}`]: [
         {
@@ -216,6 +226,39 @@ describe("ContentApp", () => {
     expect(storage.data["fukidashi:pending-focus"]).toBeUndefined();
   });
 
+  it("remembers what the page calls itself once it carries a note", async () => {
+    document.title = "The quick brown fox — Fables";
+    await renderApp();
+    expect(storedTitle()).toBeUndefined();
+
+    await selectAndOpenToolbar("brown fox");
+    await click(container.querySelector(".fk-swatch--green"));
+    await settle();
+
+    expect(storedTitle()).toBe("The quick brown fox — Fables");
+  });
+
+  it("fills in the title of a page annotated before titles were kept", async () => {
+    document.title = "An old favourite";
+    await storage.chrome.storage.local.set({
+      [`fukidashi:notes:${pageUrl()}`]: [
+        {
+          id: "stored",
+          comment: "from an earlier visit",
+          color: "blue",
+          anchor: { exact: "lazy dog", prefix: "over the ", suffix: ".", start: 35 },
+          createdAt: 1,
+          updatedAt: 1,
+        } satisfies Note,
+      ],
+    });
+
+    await renderApp();
+    await settle();
+
+    expect(storedTitle()).toBe("An old favourite");
+  });
+
   it("restores the highlights stored for the page", async () => {
     const note: Note = {
       id: "stored",
@@ -226,7 +269,7 @@ describe("ContentApp", () => {
       updatedAt: 1,
     };
     await storage.chrome.storage.local.set({
-      [`fukidashi:notes:${location.origin}${location.pathname}`]: [note],
+      [`fukidashi:notes:${pageUrl()}`]: [note],
     });
 
     await renderApp();

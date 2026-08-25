@@ -274,6 +274,16 @@
   padding: 0;
 }
 
+.fk-page__title {
+  color: var(--fk-text);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .fk-page__path {
   color: var(--fk-text);
   font-size: 12.5px;
@@ -281,6 +291,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* With a title above it the path is no longer what names the page. */
+.fk-page__title + .fk-page__path {
+  color: var(--fk-text-muted);
+  font-size: 11.5px;
 }
 
 /* --- empty state -------------------------------------------------------- */

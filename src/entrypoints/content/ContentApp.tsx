@@ -19,6 +19,7 @@ import {
   useEscapeKey,
   useNotes,
   usePageUrl,
+  useRememberPageTitle,
   useSettings,
 } from "./hooks";
 import { useHighlightBubble } from "./useHighlightBubble";
@@ -43,6 +44,7 @@ export function ContentApp() {
   const url = usePageUrl();
   const notes = useNotes(url);
   const { highlighter } = useHighlights(notes, enabled);
+  useRememberPageTitle(url, enabled && notes.length > 0);
 
   const selection = useSelection(enabled);
   const [draft, setDraft] = useState<Draft | null>(null);

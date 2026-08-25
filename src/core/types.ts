@@ -35,6 +35,8 @@ export interface Note {
 export interface PageNotes {
   url: string;
   notes: Note[];
+  /** The page's own title, as it read the last time the page was annotated. */
+  title?: string;
 }
 
 /** Every annotated page of one site, the way the popup lists them. */

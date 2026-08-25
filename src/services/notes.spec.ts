@@ -7,6 +7,8 @@ import {
   loadNotes,
   notesKey,
   saveNote,
+  savePageTitle,
+  titleKey,
   watchAllNotes,
   watchNotes,
 } from "./notes";
@@ -76,12 +78,49 @@ describe("deleteNote", () => {
     await expect(loadNotes(PAGE)).resolves.toMatchObject([{ id: "b" }]);
   });
 
-  it("drops the storage entry once the last note is gone", async () => {
+  it("drops the storage entry and the title once the last note is gone", async () => {
     await saveNote(PAGE, makeNote("a", 100));
+    await savePageTitle(PAGE, "The page");
 
     await deleteNote(PAGE, "a");
 
     expect(Object.keys(storage.data)).toEqual([]);
+  });
+});
+
+describe("savePageTitle", () => {
+  it("stores the title under the page it belongs to", async () => {
+    await savePageTitle(PAGE, "Docs — page 2");
+
+    expect(storage.data[titleKey(PAGE)]).toBe("Docs — page 2");
+  });
+
+  it("reads a title spread over several lines as one line", async () => {
+    await savePageTitle(PAGE, "\n  Docs\n  page 2  \n");
+
+    expect(storage.data[titleKey(PAGE)]).toBe("Docs page 2");
+  });
+
+  it("keeps a title short enough to list", async () => {
+    await savePageTitle(PAGE, "x".repeat(400));
+
+    expect((storage.data[titleKey(PAGE)] as string).length).toBe(300);
+  });
+
+  it("stores nothing for a page without a title", async () => {
+    await savePageTitle(PAGE, "   ");
+
+    expect(Object.keys(storage.data)).toEqual([]);
+  });
+
+  it("does not write an unchanged title again", async () => {
+    await savePageTitle(PAGE, "Docs");
+    const listener = vi.fn();
+    storage.listeners.add(listener);
+
+    await savePageTitle(PAGE, "Docs");
+
+    expect(listener).not.toHaveBeenCalled();
   });
 });
 
@@ -111,6 +150,26 @@ describe("loadAllPageNotes", () => {
 
     await expect(loadAllPageNotes()).resolves.toEqual([]);
   });
+
+  it("gives each page the title it was stored with", async () => {
+    await saveNote(PAGE, makeNote("a", 100));
+    await savePageTitle(PAGE, "Docs — page 2");
+
+    await expect(loadAllPageNotes()).resolves.toMatchObject([{ title: "Docs — page 2" }]);
+  });
+
+  it("lists a page annotated before titles were kept", async () => {
+    await saveNote(PAGE, makeNote("a", 100));
+
+    const [page] = await loadAllPageNotes();
+    expect(page.title).toBeUndefined();
+  });
+
+  it("does not list a page that only has a title left", async () => {
+    await savePageTitle(PAGE, "Docs");
+
+    await expect(loadAllPageNotes()).resolves.toEqual([]);
+  });
 });
 
 describe("watchAllNotes", () => {
@@ -131,6 +190,17 @@ describe("watchAllNotes", () => {
     await saveNote("https://example.com/other", makeNote("b", 200));
     await settle();
     expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports a title arriving after the note that prompted it", async () => {
+    await saveNote(PAGE, makeNote("a", 100));
+    const listener = vi.fn();
+    watchAllNotes(listener);
+
+    await savePageTitle(PAGE, "Docs");
+    await settle();
+
+    expect(listener).toHaveBeenCalledWith([expect.objectContaining({ title: "Docs" })]);
   });
 
   it("ignores changes to anything but notes", async () => {

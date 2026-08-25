@@ -81,6 +81,7 @@ beforeEach(async () => {
       makeNote("b", "elsewhere", 20),
       makeNote("c", "elsewhere too", 30),
     ],
+    [`fukidashi:title:${OTHER_PAGE}`]: "The guide everyone reads",
   });
 
   container = document.createElement("div");
@@ -112,6 +113,28 @@ describe("popup", () => {
       expect.stringContaining("2 notes"),
       expect.stringContaining("1 note"),
     ]);
+  });
+
+  it("names a page by its own title, above the path", async () => {
+    await renderPopup();
+    await click(buttonLabelled("All pages"));
+
+    const first = container.querySelector(".fk-list__content");
+    expect(Array.from(first?.children ?? [], (node) => node.className)).toEqual([
+      "fk-page__title",
+      "fk-page__path",
+      "fk-list__time",
+    ]);
+    expect(textsOf(".fk-page__title")).toEqual(["The guide everyone reads"]);
+  });
+
+  it("falls back to the path for a page annotated before titles were kept", async () => {
+    await renderPopup();
+    await click(buttonLabelled("All pages"));
+
+    // Only the other page carries a title, so this one is still named by path.
+    expect(textsOf(".fk-page__path")).toEqual(["/guide", "/docs"]);
+    expect(textsOf(".fk-page__title")).toHaveLength(1);
   });
 
   it("drills from a page in the site list into its notes", async () => {

@@ -1,6 +1,6 @@
 import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { type Note, normalizePageUrl } from "@/core";
-import { loadNotes, watchNotes } from "@/services/notes";
+import { loadNotes, savePageTitle, watchNotes } from "@/services/notes";
 import { DEFAULT_SETTINGS, loadSettings, type Settings, watchSettings } from "@/services/settings";
 import { type PanelPosition, placePanel } from "./position";
 
@@ -64,6 +64,18 @@ export function useNotes(url: string): Note[] {
   }, [url]);
 
   return notes;
+}
+
+/**
+ * Tells the store what this page calls itself, so the popup can list it by
+ * title. Only annotated pages are worth a title, which also backfills the ones
+ * annotated before titles were kept.
+ */
+export function useRememberPageTitle(url: string, annotated: boolean): void {
+  useEffect(() => {
+    if (!annotated) return;
+    savePageTitle(url, document.title);
+  }, [url, annotated]);
 }
 
 /** Anything with a bounding box: a selection range or a highlight element. */
