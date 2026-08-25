@@ -1,0 +1,167 @@
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Note } from "@/core";
+import { createFakeChromeStorage } from "@/testing/fakeChromeStorage";
+import App from "./App";
+
+const CURRENT_PAGE = "https://example.com/docs";
+const OTHER_PAGE = "https://other.test/guide";
+const TAB_ID = 7;
+
+function makeNote(id: string, comment: string, start = 0): Note {
+  return {
+    id,
+    comment,
+    color: "yellow",
+    anchor: { exact: `quote ${id}`, prefix: "", suffix: "", start },
+    createdAt: start,
+    updatedAt: start,
+  };
+}
+
+let storage: ReturnType<typeof createFakeChromeStorage>;
+let container: HTMLDivElement;
+let root: Root | null = null;
+let createTab: ReturnType<typeof vi.fn>;
+let sendMessage: ReturnType<typeof vi.fn>;
+
+async function renderPopup() {
+  root = createRoot(container);
+  await act(async () => {
+    root?.render(<App />);
+  });
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  });
+}
+
+async function click(element: Element | null | undefined) {
+  if (!(element instanceof HTMLElement)) throw new Error("element to click is missing");
+  await act(async () => {
+    element.click();
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  });
+}
+
+function textsOf(selector: string): string[] {
+  return Array.from(container.querySelectorAll(selector), (node) => node.textContent ?? "");
+}
+
+function buttonLabelled(label: string): HTMLElement {
+  const found = Array.from(container.querySelectorAll("button")).find(
+    (button) => button.textContent?.trim() === label,
+  );
+  if (!found) throw new Error(`no button labelled "${label}"`);
+  return found;
+}
+
+beforeEach(async () => {
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  storage = createFakeChromeStorage();
+  createTab = vi.fn();
+  sendMessage = vi.fn(async () => undefined);
+
+  vi.stubGlobal("chrome", {
+    ...storage.chrome,
+    tabs: {
+      query: vi.fn(async () => [{ id: TAB_ID, url: CURRENT_PAGE }]),
+      create: createTab,
+      sendMessage,
+    },
+  });
+  vi.stubGlobal("close", vi.fn());
+
+  await storage.chrome.storage.local.set({
+    [`fukidashi:notes:${CURRENT_PAGE}`]: [makeNote("a", "on this page", 10)],
+    [`fukidashi:notes:${OTHER_PAGE}`]: [
+      makeNote("b", "elsewhere", 20),
+      makeNote("c", "elsewhere too", 30),
+    ],
+  });
+
+  container = document.createElement("div");
+  document.body.append(container);
+});
+
+afterEach(async () => {
+  await act(async () => root?.unmount());
+  root = null;
+  container.remove();
+  vi.unstubAllGlobals();
+});
+
+describe("popup", () => {
+  it("opens on the notes of the page in front of the user", async () => {
+    await renderPopup();
+
+    expect(textsOf(".fk-list__comment")).toEqual(["on this page"]);
+    expect(container.querySelector(".fk-popup__page")?.textContent).toBe("example.com/docs");
+  });
+
+  it("gathers every annotated page under the site it belongs to", async () => {
+    await renderPopup();
+    await click(buttonLabelled("All pages"));
+
+    expect(textsOf(".fk-sites__name")).toEqual(["other.test", "example.com"]);
+    expect(textsOf(".fk-page__path")).toEqual(["/guide", "/docs"]);
+    expect(textsOf(".fk-list__time")).toEqual([
+      expect.stringContaining("2 notes"),
+      expect.stringContaining("1 note"),
+    ]);
+  });
+
+  it("drills from a page in the site list into its notes", async () => {
+    await renderPopup();
+    await click(buttonLabelled("All pages"));
+    await click(container.querySelector(".fk-list__button"));
+
+    expect(container.querySelector(".fk-popup__title")?.textContent).toBe("other.test");
+    expect(textsOf(".fk-list__comment")).toEqual(["elsewhere", "elsewhere too"]);
+  });
+
+  it("goes back from a page to the site list", async () => {
+    await renderPopup();
+    await click(buttonLabelled("All pages"));
+    await click(container.querySelector(".fk-list__button"));
+    await click(container.querySelector(".fk-popup__back"));
+
+    expect(textsOf(".fk-sites__name")).toEqual(["other.test", "example.com"]);
+  });
+
+  it("opens an annotated page in a browser tab", async () => {
+    await renderPopup();
+    await click(buttonLabelled("All pages"));
+    await click(container.querySelector(".fk-list__open"));
+
+    expect(createTab).toHaveBeenCalledWith({ url: OTHER_PAGE });
+  });
+
+  it("asks the page to show a note that was picked from its list", async () => {
+    await renderPopup();
+    await click(container.querySelector(".fk-list__button"));
+
+    expect(sendMessage).toHaveBeenCalledWith(TAB_ID, expect.objectContaining({ noteId: "a" }));
+    expect(createTab).not.toHaveBeenCalled();
+  });
+
+  it("goes to the page first when the note is on another one", async () => {
+    await renderPopup();
+    await click(buttonLabelled("All pages"));
+    await click(container.querySelector(".fk-list__button"));
+    await click(container.querySelector(".fk-list__button"));
+
+    expect(createTab).toHaveBeenCalledWith({ url: OTHER_PAGE });
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("drops a note from the list when it is deleted", async () => {
+    await renderPopup();
+    await click(container.querySelector(".fk-list__delete"));
+
+    expect(textsOf(".fk-list__comment")).toEqual([]);
+    expect(container.querySelector(".fk-empty__title")?.textContent).toBe(
+      "No notes on this page yet",
+    );
+  });
+});

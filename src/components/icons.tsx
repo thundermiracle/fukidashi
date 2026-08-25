@@ -45,3 +45,19 @@ export function CloseIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+export function ArrowLeftIcon({ className }: IconProps) {
+  return (
+    <svg {...BASE} className={className} aria-hidden="true" focusable="false">
+      <path d="M12.8 8H3.2M7 3.9 2.9 8 7 12.1" />
+    </svg>
+  );
+}
+
+export function ExternalLinkIcon({ className }: IconProps) {
+  return (
+    <svg {...BASE} className={className} aria-hidden="true" focusable="false">
+      <path d="M9.6 2.6h3.8v3.8M13.4 2.6 7.2 8.8M10.9 9.4v3.1c0 .5-.4.9-.9.9H3.5c-.5 0-.9-.4-.9-.9V6c0-.5.4-.9.9-.9h3.1" />
+    </svg>
+  );
+}
