@@ -1,26 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
 import "./ToggleSwitch.css";
 
 interface ToggleSwitchProps {
   id: string;
   label: string;
-  defaultChecked: boolean;
+  checked: boolean;
   onChange: (checked: boolean) => void;
 }
 
-export function ToggleSwitch({ id, label, defaultChecked, onChange }: ToggleSwitchProps) {
-  const [checked, setChecked] = useState(defaultChecked);
-
-  useEffect(() => {
-    setChecked(defaultChecked);
-  }, [defaultChecked]);
-
-  const handleChange = useCallback(() => {
-    const newChecked = !checked;
-    setChecked(newChecked);
-    onChange(newChecked);
-  }, [onChange, checked]);
-
+export function ToggleSwitch({ id, label, checked, onChange }: ToggleSwitchProps) {
   return (
     <div className="toggle-switch-container">
       <label htmlFor={id} className="toggle-switch-label">
@@ -34,7 +21,7 @@ export function ToggleSwitch({ id, label, defaultChecked, onChange }: ToggleSwit
           id={id}
           className="toggle-switch-checkbox"
           checked={checked}
-          onChange={handleChange}
+          onChange={(event) => onChange(event.target.checked)}
         />
         <span className="toggle-switch-button" aria-hidden="true" />
       </div>

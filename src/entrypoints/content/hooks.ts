@@ -1,14 +1,14 @@
 import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { type Note, normalizePageUrl } from "@/core";
 import { loadNotes, watchNotes } from "@/services/notes";
-import { loadSettings, type SettingsType, watchSettings } from "@/services/settings";
+import { DEFAULT_SETTINGS, loadSettings, type Settings, watchSettings } from "@/services/settings";
 import { type PanelPosition, placePanel } from "./position";
 
 /** How often the URL is polled: the isolated world cannot see the page's own pushState calls. */
 const URL_POLL_INTERVAL = 1000;
 
-export function useSettings(): SettingsType {
-  const [settings, setSettings] = useState<SettingsType>({ enabled: true });
+export function useSettings(): Settings {
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
 
   useEffect(() => {
     loadSettings().then(setSettings);

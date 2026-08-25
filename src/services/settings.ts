@@ -1,43 +1,35 @@
-// Define keys for the settings
-export const SETTINGS_KEYS = {
-  ENABLED: "enabled",
-} as const;
-
-export type SettingsType = {
+export interface Settings {
+  /** Turns highlights and panels off everywhere, without touching the stored notes. */
   enabled: boolean;
-};
+}
 
-// Default settings
-export const DEFAULT_SETTINGS: SettingsType = {
+export const DEFAULT_SETTINGS: Settings = {
   enabled: true,
 };
 
-// Load settings from chrome.storage.local
-export async function loadSettings(): Promise<SettingsType> {
-  const result = await chrome.storage.local.get(Object.values(SETTINGS_KEYS));
-  const settings: SettingsType = { ...DEFAULT_SETTINGS };
+/** Each setting is stored as its own entry, under the setting's name. */
+const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS) as (keyof Settings)[];
 
-  // Only override default values if they exist in storage
-  if (result[SETTINGS_KEYS.ENABLED] !== undefined) {
-    settings.enabled = result[SETTINGS_KEYS.ENABLED] === true;
-  }
-
-  return settings;
+export async function loadSettings(): Promise<Settings> {
+  const stored = await chrome.storage.local.get(SETTING_KEYS);
+  return {
+    enabled: typeof stored.enabled === "boolean" ? stored.enabled : DEFAULT_SETTINGS.enabled,
+  };
 }
 
-// Save a setting to chrome.storage.local
-export async function saveSetting(key: string, value: boolean): Promise<void> {
-  await chrome.storage.local.set({ [key]: value });
+/** Writes the given settings; the ones not given keep their stored value. */
+export async function saveSettings(update: Partial<Settings>): Promise<void> {
+  await chrome.storage.local.set(update);
 }
 
 /** Calls `listener` whenever the settings change, from any tab or the popup. */
-export function watchSettings(listener: (settings: SettingsType) => void): () => void {
+export function watchSettings(listener: (settings: Settings) => void): () => void {
   const handleChange = (
     changes: Record<string, chrome.storage.StorageChange>,
     areaName: string,
   ) => {
     if (areaName !== "local") return;
-    if (!Object.values(SETTINGS_KEYS).some((key) => key in changes)) return;
+    if (!SETTING_KEYS.some((key) => key in changes)) return;
     loadSettings().then(listener);
   };
 

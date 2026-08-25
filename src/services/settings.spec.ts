@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_SETTINGS, loadSettings, SETTINGS_KEYS, saveSetting } from "./settings";
+import { DEFAULT_SETTINGS, loadSettings, saveSettings } from "./settings";
 
 const storage = {
   get: vi.fn(),
@@ -18,16 +18,22 @@ describe("loadSettings", () => {
   });
 
   it("returns the stored value when it exists", async () => {
-    storage.get.mockResolvedValue({ [SETTINGS_KEYS.ENABLED]: false });
+    storage.get.mockResolvedValue({ enabled: false });
 
     await expect(loadSettings()).resolves.toEqual({ enabled: false });
   });
+
+  it("falls back to the default when the stored value is not a boolean", async () => {
+    storage.get.mockResolvedValue({ enabled: "yes" });
+
+    await expect(loadSettings()).resolves.toEqual(DEFAULT_SETTINGS);
+  });
 });
 
-describe("saveSetting", () => {
-  it("writes the key/value pair to chrome.storage.local", async () => {
-    await saveSetting(SETTINGS_KEYS.ENABLED, false);
+describe("saveSettings", () => {
+  it("writes the given settings to chrome.storage.local", async () => {
+    await saveSettings({ enabled: false });
 
-    expect(storage.set).toHaveBeenCalledWith({ [SETTINGS_KEYS.ENABLED]: false });
+    expect(storage.set).toHaveBeenCalledWith({ enabled: false });
   });
 });

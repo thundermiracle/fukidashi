@@ -61,7 +61,7 @@ src/
 ├── core/          Anchoring notes to page text, URLs, types, pure helpers
 ├── services/      Storage, highlight rendering, messaging
 ├── components/    React UI (toolbar, composer, bubble, list)
-├── entrypoints/   content script, popup, background
+├── entrypoints/   content script, popup
 ├── testing/       Test helpers (fake chrome.storage, jsdom setup)
 └── assets/        Assets imported from code
 public/icon/       Extension icons (picked up automatically by WXT)

@@ -17,7 +17,7 @@ import {
 import { setPendingFocus } from "@/services/focus";
 import { requestFocusNote } from "@/services/messages";
 import { deleteNote, loadAllPageNotes, watchAllNotes } from "@/services/notes";
-import { loadSettings, SETTINGS_KEYS, saveSetting } from "@/services/settings";
+import { loadSettings, saveSettings } from "@/services/settings";
 import "./App.css";
 
 /** Notes are listed in the order they appear in the page text. */
@@ -71,7 +71,7 @@ function App() {
 
   const handleToggle = useCallback(async (checked: boolean) => {
     setEnabled(checked);
-    await saveSetting(SETTINGS_KEYS.ENABLED, checked);
+    await saveSettings({ enabled: checked });
   }, []);
 
   const openPage = useCallback((url: string) => {
@@ -205,7 +205,7 @@ function App() {
         <ToggleSwitch
           id="enabled"
           label="Show highlights"
-          defaultChecked={enabled}
+          checked={enabled}
           onChange={handleToggle}
         />
       </footer>
