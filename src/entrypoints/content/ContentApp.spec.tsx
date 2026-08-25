@@ -182,6 +182,29 @@ describe("ContentApp", () => {
     expect(document.querySelector("mark")?.getAttribute("data-fukidashi-active")).toBe("true");
   });
 
+  it("jumps to the note the popup picked before this page was open", async () => {
+    const page = `${location.origin}${location.pathname}`;
+    await storage.chrome.storage.local.set({
+      [`fukidashi:notes:${page}`]: [
+        {
+          id: "stored",
+          comment: "waiting to be read",
+          color: "blue",
+          anchor: { exact: "lazy dog", prefix: "over the ", suffix: ".", start: 35 },
+          createdAt: 1,
+          updatedAt: 1,
+        } satisfies Note,
+      ],
+      "fukidashi:pending-focus": { url: page, noteId: "stored", at: Date.now() },
+    });
+
+    await renderApp();
+    await settle(400);
+
+    expect(container.querySelector(".fk-bubble")?.textContent).toContain("waiting to be read");
+    expect(storage.data["fukidashi:pending-focus"]).toBeUndefined();
+  });
+
   it("restores the highlights stored for the page", async () => {
     const note: Note = {
       id: "stored",

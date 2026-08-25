@@ -22,7 +22,7 @@ import {
 } from "./hooks";
 import { useHighlightBubble } from "./useHighlightBubble";
 import { useHighlights } from "./useHighlights";
-import { useNoteMessages } from "./useNoteMessages";
+import { useNoteMessages, usePendingFocus } from "./useNoteFocus";
 import { clearSelection, useSelection } from "./useSelection";
 
 interface Draft {
@@ -51,6 +51,7 @@ export function ContentApp() {
   // Picking a note in the popup jumps to it and opens its bubble, which is
   // also what emphasises the highlight underneath.
   useNoteMessages(highlighter, bubble.open);
+  usePendingFocus(url, highlighter, bubble.open);
 
   const toolbar = useAnchoredPosition<HTMLDivElement>(draft ? null : (selection?.range ?? null));
   const composer = useAnchoredPosition<HTMLDivElement>(draft?.target ?? null);

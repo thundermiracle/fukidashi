@@ -14,6 +14,7 @@ import {
   type PageNotes,
   pageHost,
 } from "@/core";
+import { setPendingFocus } from "@/services/focus";
 import { requestFocusNote } from "@/services/messages";
 import { deleteNote, loadAllPageNotes, watchAllNotes } from "@/services/notes";
 import { loadSettings, SETTINGS_KEYS, saveSetting } from "@/services/settings";
@@ -85,8 +86,10 @@ function App() {
 
   const handleSelectNote = useCallback(
     async (note: Note) => {
-      // A note of some other page can only be reached by going there first.
+      // A note of some other page can only be reached by going there first;
+      // the jump is left behind for that page to pick up as it loads.
       if (listedUrl !== currentUrl || tabId === null) {
+        await setPendingFocus(listedUrl, note.id);
         openPage(listedUrl);
         return;
       }

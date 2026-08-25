@@ -153,6 +153,19 @@ describe("popup", () => {
 
     expect(createTab).toHaveBeenCalledWith({ url: OTHER_PAGE });
     expect(sendMessage).not.toHaveBeenCalled();
+    // The page cannot be told directly, so the jump waits for it to load.
+    expect(storage.data["fukidashi:pending-focus"]).toMatchObject({
+      url: OTHER_PAGE,
+      noteId: "b",
+    });
+  });
+
+  it("leaves no jump behind when only the page was asked for", async () => {
+    await renderPopup();
+    await click(buttonLabelled("All pages"));
+    await click(container.querySelector(".fk-list__open"));
+
+    expect(storage.data["fukidashi:pending-focus"]).toBeUndefined();
   });
 
   it("drops a note from the list when it is deleted", async () => {
