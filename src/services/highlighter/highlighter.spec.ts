@@ -74,6 +74,21 @@ describe("createHighlighter", () => {
     expect(document.querySelectorAll("mark")).toHaveLength(1);
   });
 
+  it("draws the highlight again after the page has thrown it away", () => {
+    const original = "<p>The quick brown fox jumps.</p>";
+    document.body.innerHTML = original;
+    const note = noteFor("brown fox");
+    const highlighter = createHighlighter();
+    highlighter.sync([note]);
+
+    // What a translation does: the whole paragraph is replaced, marks and all.
+    document.body.innerHTML = original;
+    const result = highlighter.sync([note]);
+
+    expect(result.missing).toHaveLength(0);
+    expect(document.querySelector("mark")?.textContent).toBe("brown fox");
+  });
+
   it("reports notes whose text is no longer on the page", () => {
     document.body.innerHTML = "<p>The quick brown fox jumps.</p>";
     const note = noteFor("brown fox");

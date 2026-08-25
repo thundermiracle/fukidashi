@@ -70,8 +70,18 @@ export function createHighlighter(root: HTMLElement = document.body): Highlighte
           rendered.delete(id);
           continue;
         }
+
+        const marks = findMarks(root, id);
+        // The page can throw a highlight away by rewriting the text it wraps —
+        // a translation, or a framework replacing the node. Forgetting the note
+        // here lets the pass below draw it again.
+        if (marks.length === 0) {
+          rendered.delete(id);
+          continue;
+        }
+
         if (rendered.get(id) !== note.color) {
-          for (const mark of findMarks(root, id)) mark.className = markClassName(note.color);
+          for (const mark of marks) mark.className = markClassName(note.color);
           rendered.set(id, note.color);
         }
       }
