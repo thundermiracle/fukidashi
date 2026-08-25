@@ -2,4 +2,4 @@ export * from "./anchor";
 export { generateId } from "./id";
 export { formatRelativeTime } from "./time";
 export * from "./types";
-export { formatPageUrl, normalizePageUrl } from "./url";
+export { formatPagePath, formatPageUrl, normalizePageUrl, pageHost } from "./url";
