@@ -7,6 +7,7 @@ import {
   createAnchor,
   DEFAULT_NOTE_COLOR,
   generateId,
+  NO_TRANSLATE_CLASS,
   type NoteColor,
   type TextAnchor,
 } from "@/core";
@@ -154,7 +155,9 @@ export function ContentApp() {
   if (!enabled) return null;
 
   return (
-    <div className="fk-root">
+    // Said again inside the shadow root: a translator that walks in from the
+    // page cannot see the marker left on the host.
+    <div className={`fk-root ${NO_TRANSLATE_CLASS}`} translate="no">
       {draft && (
         <NoteComposer
           panelRef={composer.ref}

@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import { UI_ATTRIBUTE } from "@/core";
+import { keepUntranslated, UI_ATTRIBUTE } from "@/core";
 import { ContentApp } from "./ContentApp";
 import "./ui.css";
 
@@ -31,6 +31,9 @@ export default defineContentScript({
     // The host covers the viewport so panels can be placed in viewport
     // coordinates, while clicks fall through to the page.
     ui.shadowHost.setAttribute(UI_ATTRIBUTE, "");
+    // Page translators reach into the shadow root and would rewrite the memos
+    // themselves — a note read on a translated page must stay what was typed.
+    keepUntranslated(ui.shadowHost);
     Object.assign(ui.shadowHost.style, {
       position: "fixed",
       inset: "0",

@@ -182,6 +182,17 @@ describe("ContentApp", () => {
     expect(document.querySelector("mark")?.getAttribute("data-fukidashi-active")).toBe("true");
   });
 
+  it("tells a page translator to leave its own panels alone", async () => {
+    await renderApp();
+    await selectAndOpenToolbar("brown fox");
+
+    const root = container.querySelector(".fk-root");
+    expect(root?.getAttribute("translate")).toBe("no");
+    expect(root?.classList.contains("notranslate")).toBe(true);
+    // The toolbar is inside it, so the whole UI is covered by the one marker.
+    expect(root?.querySelector(".fk-toolbar")).not.toBeNull();
+  });
+
   it("jumps to the note the popup picked before this page was open", async () => {
     const page = `${location.origin}${location.pathname}`;
     await storage.chrome.storage.local.set({
