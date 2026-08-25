@@ -30,3 +30,18 @@ export interface Note {
   createdAt: number;
   updatedAt: number;
 }
+
+/** The notes of one page, held under the normalized URL they are stored by. */
+export interface PageNotes {
+  url: string;
+  notes: Note[];
+}
+
+/** Every annotated page of one site, the way the popup lists them. */
+export interface SiteNotes {
+  host: string;
+  pages: PageNotes[];
+  noteCount: number;
+  /** When the site's most recently edited note was written. */
+  updatedAt: number;
+}
