@@ -1,6 +1,29 @@
 /* Everything here lives inside the extension's shadow root, so page styles
    cannot reach it — but inherited properties still can, hence the reset. */
 
+/* The host covers the viewport so panels can be placed in viewport
+   coordinates, while clicks fall through to the page.
+
+   It has to be said here rather than on the host's style attribute: WXT opens
+   this stylesheet with `:host { all: initial !important }`, which beats any
+   inline style. Being a later rule of equal specificity in the same sheet,
+   this one wins. Without it the host is a static inline box, absolutely
+   positioned panels resolve against the document instead of the viewport, and
+   every panel drifts away from its anchor by the scroll offset. */
+/* biome-ignore-start lint/complexity/noImportantStyles: outranking WXT's own
+   `all: initial !important` reset is the entire point of this rule. */
+:host {
+  position: fixed !important;
+  inset: 0 !important;
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none !important;
+  /* Above every reasonable page element, but inside the 32-bit maximum. */
+  z-index: 2147483646 !important;
+}
+/* biome-ignore-end lint/complexity/noImportantStyles: back to normal rules. */
+
 .fk-root {
   --fk-font:
     -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Noto Sans JP", Helvetica,
