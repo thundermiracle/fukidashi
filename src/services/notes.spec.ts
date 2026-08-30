@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Note } from "@/core";
+import { type Note, type PageTitle, TOMBSTONE_TTL_MS } from "@/core";
 import { createFakeChromeStorage } from "@/testing/fakeChromeStorage";
 import {
   deleteNote,
   loadAllPageNotes,
   loadNotes,
+  loadNotesWithTombstones,
   notesKey,
   saveNote,
   savePageTitle,
@@ -78,33 +79,69 @@ describe("deleteNote", () => {
     await expect(loadNotes(PAGE)).resolves.toMatchObject([{ id: "b" }]);
   });
 
-  it("drops the storage entry and the title once the last note is gone", async () => {
+  it("keeps the deleted note as a tombstone for the sync layer", async () => {
+    await saveNote(PAGE, makeNote("a", 100));
+
+    await deleteNote(PAGE, "a");
+
+    await expect(loadNotes(PAGE)).resolves.toEqual([]);
+    const [tombstone] = await loadNotesWithTombstones(PAGE);
+    expect(tombstone.id).toBe("a");
+    expect(tombstone.deletedAt).toBeGreaterThan(0);
+    expect(tombstone.updatedAt).toBe(tombstone.deletedAt);
+  });
+
+  it("drops the title once the last live note is gone, but keeps the entry", async () => {
     await saveNote(PAGE, makeNote("a", 100));
     await savePageTitle(PAGE, "The page");
 
     await deleteNote(PAGE, "a");
 
-    expect(Object.keys(storage.data)).toEqual([]);
+    expect(Object.keys(storage.data)).toEqual([notesKey(PAGE)]);
+  });
+
+  it("changes nothing for an id the page does not have", async () => {
+    await saveNote(PAGE, makeNote("a", 100));
+
+    await deleteNote(PAGE, "missing");
+
+    await expect(loadNotesWithTombstones(PAGE)).resolves.toMatchObject([{ id: "a" }]);
+  });
+
+  it("purges tombstones older than the TTL on the next write", async () => {
+    const expired = Date.now() - TOMBSTONE_TTL_MS;
+    await storage.chrome.storage.local.set({
+      [notesKey(PAGE)]: [{ ...makeNote("dead", 100), updatedAt: expired, deletedAt: expired }],
+    });
+
+    await saveNote(PAGE, makeNote("b", 200));
+
+    await expect(loadNotesWithTombstones(PAGE)).resolves.toMatchObject([{ id: "b" }]);
   });
 });
 
 describe("savePageTitle", () => {
-  it("stores the title under the page it belongs to", async () => {
+  function storedTitle(): PageTitle {
+    return storage.data[titleKey(PAGE)] as PageTitle;
+  }
+
+  it("stores the title under the page it belongs to, with the time it was written", async () => {
     await savePageTitle(PAGE, "Docs — page 2");
 
-    expect(storage.data[titleKey(PAGE)]).toBe("Docs — page 2");
+    expect(storedTitle().text).toBe("Docs — page 2");
+    expect(storedTitle().updatedAt).toBeGreaterThan(0);
   });
 
   it("reads a title spread over several lines as one line", async () => {
     await savePageTitle(PAGE, "\n  Docs\n  page 2  \n");
 
-    expect(storage.data[titleKey(PAGE)]).toBe("Docs page 2");
+    expect(storedTitle().text).toBe("Docs page 2");
   });
 
   it("keeps a title short enough to list", async () => {
     await savePageTitle(PAGE, "x".repeat(400));
 
-    expect((storage.data[titleKey(PAGE)] as string).length).toBe(300);
+    expect(storedTitle().text.length).toBe(300);
   });
 
   it("stores nothing for a page without a title", async () => {
@@ -121,6 +158,14 @@ describe("savePageTitle", () => {
     await savePageTitle(PAGE, "Docs");
 
     expect(listener).not.toHaveBeenCalled();
+  });
+
+  it("rewrites a title stored before timestamps, so it picks one up", async () => {
+    await storage.chrome.storage.local.set({ [titleKey(PAGE)]: "Docs" });
+
+    await savePageTitle(PAGE, "Docs");
+
+    expect(storedTitle().updatedAt).toBeGreaterThan(0);
   });
 });
 
@@ -151,11 +196,25 @@ describe("loadAllPageNotes", () => {
     await expect(loadAllPageNotes()).resolves.toEqual([]);
   });
 
+  it("does not list a page whose notes are all tombstones", async () => {
+    await saveNote(PAGE, makeNote("a", 100));
+    await deleteNote(PAGE, "a");
+
+    await expect(loadAllPageNotes()).resolves.toEqual([]);
+  });
+
   it("gives each page the title it was stored with", async () => {
     await saveNote(PAGE, makeNote("a", 100));
     await savePageTitle(PAGE, "Docs — page 2");
 
     await expect(loadAllPageNotes()).resolves.toMatchObject([{ title: "Docs — page 2" }]);
+  });
+
+  it("still reads a title stored before timestamps", async () => {
+    await saveNote(PAGE, makeNote("a", 100));
+    await storage.chrome.storage.local.set({ [titleKey(PAGE)]: "Docs" });
+
+    await expect(loadAllPageNotes()).resolves.toMatchObject([{ title: "Docs" }]);
   });
 
   it("lists a page annotated before titles were kept", async () => {
@@ -234,5 +293,15 @@ describe("watchNotes", () => {
     await saveNote("https://example.com/other", makeNote("a", 100));
 
     expect(listener).not.toHaveBeenCalled();
+  });
+
+  it("reports a deletion as the live notes, without the tombstone", async () => {
+    await saveNote(PAGE, makeNote("a", 100));
+    const listener = vi.fn();
+    watchNotes(PAGE, listener);
+
+    await deleteNote(PAGE, "a");
+
+    expect(listener).toHaveBeenCalledWith([]);
   });
 });

@@ -26,6 +26,7 @@ let root: Root | null = null;
 let createTab: ReturnType<typeof vi.fn>;
 let sendMessage: ReturnType<typeof vi.fn>;
 let reloadTab: ReturnType<typeof vi.fn>;
+let openOptionsPage: ReturnType<typeof vi.fn>;
 
 async function renderPopup() {
   root = createRoot(container);
@@ -63,9 +64,11 @@ beforeEach(async () => {
   createTab = vi.fn();
   sendMessage = vi.fn(async () => undefined);
   reloadTab = vi.fn();
+  openOptionsPage = vi.fn();
 
   vi.stubGlobal("chrome", {
     ...storage.chrome,
+    runtime: { openOptionsPage },
     tabs: {
       query: vi.fn(async () => [{ id: TAB_ID, url: CURRENT_PAGE }]),
       create: createTab,
@@ -217,5 +220,15 @@ describe("popup", () => {
     expect(container.querySelector(".fk-empty__title")?.textContent).toBe(
       "No notes on this page yet",
     );
+  });
+
+  it("sends backup and restore to a page of their own", async () => {
+    // A file picker would close the popup before it could read what was
+    // picked, so the popup only points at the page that can.
+    await renderPopup();
+    await click(container.querySelector('[aria-label="Settings"]'));
+
+    expect(openOptionsPage).toHaveBeenCalled();
+    expect(window.close).toHaveBeenCalled();
   });
 });

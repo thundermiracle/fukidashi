@@ -1,0 +1,100 @@
+.fk-page {
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.fk-page__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.fk-page__logo {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+}
+
+.fk-page__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.fk-page__subtitle {
+  margin: 2px 0 0;
+  color: var(--fk-text-muted);
+  font-size: 13px;
+}
+
+.fk-section {
+  margin: 0 0 10px;
+  color: var(--fk-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.fk-card {
+  padding: 18px 20px;
+  margin-bottom: 14px;
+  border: 1px solid var(--fk-divider);
+  border-radius: 10px;
+  background: var(--fk-surface-sunken);
+}
+
+.fk-card__title {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.fk-card__body {
+  margin: 0 0 14px;
+  color: var(--fk-text-muted);
+  font-size: 13px;
+}
+
+.fk-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1px solid var(--fk-divider);
+  border-radius: 7px;
+  background: var(--fk-surface);
+  color: var(--fk-text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.fk-button:hover {
+  background: var(--fk-hover);
+}
+
+.fk-button:has(input:disabled),
+.fk-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* The label is the button; the input behind it only opens the picker. */
+.fk-button__file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.fk-outcome {
+  margin: 4px 0 0;
+  color: var(--fk-text-muted);
+  font-size: 13px;
+}
+
+.fk-outcome--failed {
+  color: #d4462e;
+}

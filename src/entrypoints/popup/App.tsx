@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import logo from "@/assets/fukidashi.png";
-import { ArrowLeftIcon, BubbleIcon, ExternalLinkIcon } from "@/components/icons";
+import { ArrowLeftIcon, BubbleIcon, ExternalLinkIcon, GearIcon } from "@/components/icons";
 import { NoteList } from "@/components/NoteList";
 import { SiteList } from "@/components/SiteList";
 import { ToggleSwitch } from "@/components/ToggleSwitch";
@@ -109,6 +109,13 @@ function App() {
 
   const handleDeleteNote = useCallback((note: Note) => deleteNote(listedUrl, note.id), [listedUrl]);
 
+  // Backup lives on the settings page, not here: picking a file opens an OS
+  // dialog, and that closes the popup before it can read what was picked.
+  const openSettings = useCallback(() => {
+    chrome.runtime.openOptionsPage();
+    window.close();
+  }, []);
+
   /** Says which notes the body is showing: a page's, or everything stored. */
   const subtitle = () => {
     if (openedUrl) return formatPagePath(openedUrl);
@@ -184,6 +191,15 @@ function App() {
             <ExternalLinkIcon />
           </button>
         )}
+        <button
+          type="button"
+          className="fk-icon-button"
+          title="Settings"
+          aria-label="Settings"
+          onClick={openSettings}
+        >
+          <GearIcon />
+        </button>
         <span className="fk-popup__count">{showsOnePage ? listedNotes.length : totalNotes}</span>
       </header>
 

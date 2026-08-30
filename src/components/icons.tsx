@@ -61,3 +61,28 @@ export function ExternalLinkIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+export function GearIcon({ className }: IconProps) {
+  return (
+    <svg {...BASE} className={className} aria-hidden="true" focusable="false">
+      <circle cx="8" cy="8" r="2.1" />
+      <path d="M12.6 9.8a1 1 0 0 0 .2 1.1l.1.1a1.2 1.2 0 1 1-1.7 1.7l-.1-.1a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.9v.2a1.2 1.2 0 0 1-2.4 0v-.1a1 1 0 0 0-.7-.9 1 1 0 0 0-1.1.2l-.1.1a1.2 1.2 0 1 1-1.7-1.7l.1-.1a1 1 0 0 0 .2-1.1 1 1 0 0 0-.9-.6h-.2a1.2 1.2 0 0 1 0-2.4h.1a1 1 0 0 0 .9-.7 1 1 0 0 0-.2-1.1l-.1-.1a1.2 1.2 0 1 1 1.7-1.7l.1.1a1 1 0 0 0 1.1.2h.1a1 1 0 0 0 .6-.9v-.2a1.2 1.2 0 0 1 2.4 0v.1a1 1 0 0 0 .6.9 1 1 0 0 0 1.1-.2l.1-.1a1.2 1.2 0 1 1 1.7 1.7l-.1.1a1 1 0 0 0-.2 1.1v.1a1 1 0 0 0 .9.6h.2a1.2 1.2 0 0 1 0 2.4h-.1a1 1 0 0 0-.9.6Z" />
+    </svg>
+  );
+}
+
+export function DownloadIcon({ className }: IconProps) {
+  return (
+    <svg {...BASE} className={className} aria-hidden="true" focusable="false">
+      <path d="M8 2.5v7M5 6.8 8 9.8l3-3M2.8 12.2h10.4" />
+    </svg>
+  );
+}
+
+export function UploadIcon({ className }: IconProps) {
+  return (
+    <svg {...BASE} className={className} aria-hidden="true" focusable="false">
+      <path d="M8 9.8v-7M5 5.8 8 2.8l3 3M2.8 12.2h10.4" />
+    </svg>
+  );
+}
