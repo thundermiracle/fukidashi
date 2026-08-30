@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Note } from "@/core";
+import type { Note, PageTitle } from "@/core";
 import { FOCUS_NOTE } from "@/services/messages";
 import { createFakeChromeStorage } from "@/testing/fakeChromeStorage";
 import { ContentApp } from "./ContentApp";
@@ -94,7 +94,7 @@ function watchComposerFocus(): { calls: string[]; stop: () => void } {
 
 function storedTitle(): string | undefined {
   const key = Object.keys(storage.data).find((name) => name.startsWith("fukidashi:title:"));
-  return key ? (storage.data[key] as string) : undefined;
+  return key ? (storage.data[key] as PageTitle).text : undefined;
 }
 
 /** The URL notes of this page are stored under, the way the app normalizes it. */

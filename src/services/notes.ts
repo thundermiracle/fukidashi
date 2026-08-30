@@ -6,6 +6,7 @@ import {
   normalizePageUrl,
   type PageNotes,
   purgeExpiredTombstones,
+  toPageTitle,
 } from "@/core";
 
 const NOTES_KEY_PREFIX = "fukidashi:notes:";
@@ -112,9 +113,12 @@ export async function savePageTitle(url: string, title: string): Promise<void> {
 
   const key = titleKey(url);
   const stored = await chrome.storage.local.get(key);
-  if (stored[key] === tidied) return;
+  // An unchanged title is not written again: every visit to an annotated page
+  // offers one, and each write wakes the popup. A title from before
+  // timestamps is rewritten even unchanged, so it picks up an updatedAt.
+  if (toPageTitle(stored[key])?.text === tidied && typeof stored[key] !== "string") return;
 
-  await chrome.storage.local.set({ [key]: tidied });
+  await chrome.storage.local.set({ [key]: { text: tidied, updatedAt: Date.now() } });
 }
 
 /**
@@ -127,8 +131,9 @@ export async function loadAllPageNotes(): Promise<PageNotes[]> {
   const titles = new Map<string, string>();
 
   for (const [key, value] of Object.entries(stored)) {
-    if (key.startsWith(TITLE_KEY_PREFIX) && typeof value === "string") {
-      titles.set(key.slice(TITLE_KEY_PREFIX.length), value);
+    if (key.startsWith(TITLE_KEY_PREFIX)) {
+      const title = toPageTitle(value);
+      if (title) titles.set(key.slice(TITLE_KEY_PREFIX.length), title.text);
       continue;
     }
     if (!key.startsWith(NOTES_KEY_PREFIX)) continue;

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { type Note, TOMBSTONE_TTL_MS } from "@/core";
+import { type Note, type PageTitle, TOMBSTONE_TTL_MS } from "@/core";
 import { createFakeChromeStorage } from "@/testing/fakeChromeStorage";
 import {
   deleteNote,
@@ -121,22 +121,27 @@ describe("deleteNote", () => {
 });
 
 describe("savePageTitle", () => {
-  it("stores the title under the page it belongs to", async () => {
+  function storedTitle(): PageTitle {
+    return storage.data[titleKey(PAGE)] as PageTitle;
+  }
+
+  it("stores the title under the page it belongs to, with the time it was written", async () => {
     await savePageTitle(PAGE, "Docs — page 2");
 
-    expect(storage.data[titleKey(PAGE)]).toBe("Docs — page 2");
+    expect(storedTitle().text).toBe("Docs — page 2");
+    expect(storedTitle().updatedAt).toBeGreaterThan(0);
   });
 
   it("reads a title spread over several lines as one line", async () => {
     await savePageTitle(PAGE, "\n  Docs\n  page 2  \n");
 
-    expect(storage.data[titleKey(PAGE)]).toBe("Docs page 2");
+    expect(storedTitle().text).toBe("Docs page 2");
   });
 
   it("keeps a title short enough to list", async () => {
     await savePageTitle(PAGE, "x".repeat(400));
 
-    expect((storage.data[titleKey(PAGE)] as string).length).toBe(300);
+    expect(storedTitle().text.length).toBe(300);
   });
 
   it("stores nothing for a page without a title", async () => {
@@ -153,6 +158,14 @@ describe("savePageTitle", () => {
     await savePageTitle(PAGE, "Docs");
 
     expect(listener).not.toHaveBeenCalled();
+  });
+
+  it("rewrites a title stored before timestamps, so it picks one up", async () => {
+    await storage.chrome.storage.local.set({ [titleKey(PAGE)]: "Docs" });
+
+    await savePageTitle(PAGE, "Docs");
+
+    expect(storedTitle().updatedAt).toBeGreaterThan(0);
   });
 });
 
@@ -195,6 +208,13 @@ describe("loadAllPageNotes", () => {
     await savePageTitle(PAGE, "Docs — page 2");
 
     await expect(loadAllPageNotes()).resolves.toMatchObject([{ title: "Docs — page 2" }]);
+  });
+
+  it("still reads a title stored before timestamps", async () => {
+    await saveNote(PAGE, makeNote("a", 100));
+    await storage.chrome.storage.local.set({ [titleKey(PAGE)]: "Docs" });
+
+    await expect(loadAllPageNotes()).resolves.toMatchObject([{ title: "Docs" }]);
   });
 
   it("lists a page annotated before titles were kept", async () => {

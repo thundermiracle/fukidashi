@@ -36,6 +36,12 @@ export interface Note {
   deletedAt?: number;
 }
 
+/** A page's own title with the time it was written, so sync can pick the newer one. */
+export interface PageTitle {
+  text: string;
+  updatedAt: number;
+}
+
 /** The notes of one page, held under the normalized URL they are stored by. */
 export interface PageNotes {
   url: string;
