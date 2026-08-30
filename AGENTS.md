@@ -6,9 +6,12 @@
 - `src/core/` holds pure logic — note types, text anchoring, formatting; tests live alongside as `.spec.ts`.
 - `src/components/` contains React UI pieces; `src/services/` hosts shared service logic
   (storage, highlight rendering, messaging).
-- `src/testing/` holds test helpers: a fake `chrome.storage` and the Vitest setup file
-  that fills in `Range.getBoundingClientRect` and `Element.scrollIntoView`, which jsdom
-  does not implement.
+- `src/services/sync/` holds the cross-device sync layer: the `SyncBackend` interface,
+  the pull-merge-push engine and its scheduler. No backend is configured yet —
+  `loadSyncBackend` returns null, so the background entrypoint stays idle.
+- `src/testing/` holds test helpers: a fake `chrome.storage`, a fake sync backend, and
+  the Vitest setup file that fills in `Range.getBoundingClientRect` and
+  `Element.scrollIntoView`, which jsdom does not implement.
 - `src/assets/` stores assets imported from code; `public/` stores files copied as-is
   (`public/icon/*.png` is picked up by WXT as the extension icon).
 - Build output lands in `dist/`; coverage reports in `coverage/`.
