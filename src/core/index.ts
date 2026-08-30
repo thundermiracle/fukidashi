@@ -2,6 +2,7 @@ export * from "./anchor";
 export { generateId } from "./id";
 export { formatCount } from "./plural";
 export { groupBySite, lastTouched } from "./sites";
+export * from "./sync";
 export { formatRelativeTime } from "./time";
 export { toPageTitle } from "./title";
 export { isLiveNote, liveNotes, purgeExpiredTombstones, TOMBSTONE_TTL_MS } from "./tombstone";
