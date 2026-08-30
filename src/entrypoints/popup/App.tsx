@@ -1,12 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import logo from "@/assets/fukidashi.png";
-import {
-  ArrowLeftIcon,
-  BubbleIcon,
-  DownloadIcon,
-  ExternalLinkIcon,
-  UploadIcon,
-} from "@/components/icons";
+import { ArchiveIcon, ArrowLeftIcon, BubbleIcon, ExternalLinkIcon } from "@/components/icons";
 import { NoteList } from "@/components/NoteList";
 import { SiteList } from "@/components/SiteList";
 import { ToggleSwitch } from "@/components/ToggleSwitch";
@@ -24,12 +18,6 @@ import { setPendingFocus } from "@/services/focus";
 import { requestFocusNote } from "@/services/messages";
 import { deleteNote, loadAllPageNotes, watchAllNotes } from "@/services/notes";
 import { loadSettings, saveSettings } from "@/services/settings";
-import {
-  buildSyncPayload,
-  exportFileName,
-  importSyncPayload,
-  serializeSyncPayload,
-} from "@/services/sync";
 import "./App.css";
 
 /** Notes are listed in the order they appear in the page text. */
@@ -50,9 +38,6 @@ function App() {
   const [tab, setTab] = useState<"page" | "sites">("page");
   /** The page drilled into from the site list, if any. */
   const [openedUrl, setOpenedUrl] = useState<string | null>(null);
-  /** What the last export or import did, shown until the popup closes. */
-  const [transferNote, setTransferNote] = useState("");
-  const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -124,33 +109,11 @@ function App() {
 
   const handleDeleteNote = useCallback((note: Note) => deleteNote(listedUrl, note.id), [listedUrl]);
 
-  const handleExport = useCallback(async () => {
-    try {
-      const payload = await buildSyncPayload();
-      const url = URL.createObjectURL(
-        new Blob([serializeSyncPayload(payload)], { type: "application/json" }),
-      );
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = exportFileName(payload.exportedAt);
-      link.click();
-      URL.revokeObjectURL(url);
-
-      setTransferNote(`Saved ${formatCount(payload.pages.length, "page")}.`);
-    } catch (error) {
-      console.error("Fukidashi: could not export the notes", error);
-      setTransferNote("Could not save the notes.");
-    }
-  }, []);
-
-  const handleImport = useCallback(async (file: File) => {
-    try {
-      const pageCount = await importSyncPayload(await file.text());
-      setTransferNote(`Merged ${formatCount(pageCount, "page")}.`);
-    } catch (error) {
-      console.error("Fukidashi: could not import the notes", error);
-      setTransferNote(error instanceof Error ? error.message : "Could not read that file.");
-    }
+  // Export and import live on their own page: picking a file opens an OS
+  // dialog, and that closes the popup before it can read what was picked.
+  const openBackup = useCallback(() => {
+    chrome.runtime.openOptionsPage();
+    window.close();
   }, []);
 
   /** Says which notes the body is showing: a page's, or everything stored. */
@@ -262,35 +225,10 @@ function App() {
           onChange={handleToggle}
         />
 
-        <div className="fk-transfer">
-          <button type="button" className="fk-transfer__button" onClick={handleExport}>
-            <DownloadIcon />
-            Export
-          </button>
-          <button
-            type="button"
-            className="fk-transfer__button"
-            onClick={() => fileInput.current?.click()}
-          >
-            <UploadIcon />
-            Import
-          </button>
-          <input
-            ref={fileInput}
-            type="file"
-            accept="application/json,.json"
-            className="fk-transfer__file"
-            aria-label="Import notes from a file"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              // The same file picked twice should still import the second time.
-              event.target.value = "";
-              if (file) handleImport(file);
-            }}
-          />
-        </div>
-
-        {transferNote && <p className="fk-transfer__note">{transferNote}</p>}
+        <button type="button" className="fk-transfer__button" onClick={openBackup}>
+          <ArchiveIcon />
+          Backup
+        </button>
       </footer>
     </div>
   );

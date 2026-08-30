@@ -336,13 +336,8 @@
   border-top: 1px solid var(--fk-divider);
 }
 
-.fk-transfer {
-  display: flex;
-  gap: 6px;
-  margin-top: 6px;
-}
-
 .fk-transfer__button {
+  margin-top: 6px;
   display: flex;
   align-items: center;
   gap: 5px;
@@ -359,20 +354,4 @@
 .fk-transfer__button:hover {
   background: var(--fk-hover);
   color: var(--fk-text);
-}
-
-/* The picker is opened by the Import button, so the input itself stays out
-   of the way without leaving the accessibility tree. */
-.fk-transfer__file {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.fk-transfer__note {
-  margin: 6px 0 0;
-  color: var(--fk-text-muted);
-  font-size: 11px;
 }

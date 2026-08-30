@@ -62,6 +62,14 @@ export function ExternalLinkIcon({ className }: IconProps) {
   );
 }
 
+export function ArchiveIcon({ className }: IconProps) {
+  return (
+    <svg {...BASE} className={className} aria-hidden="true" focusable="false">
+      <path d="M2.6 5.2h10.8v7.2c0 .5-.4.9-.9.9H3.5c-.5 0-.9-.4-.9-.9V5.2ZM2.2 2.7h11.6v2.5H2.2zM6.5 8h3" />
+    </svg>
+  );
+}
+
 export function DownloadIcon({ className }: IconProps) {
   return (
     <svg {...BASE} className={className} aria-hidden="true" focusable="false">
