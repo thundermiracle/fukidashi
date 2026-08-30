@@ -12,7 +12,8 @@ export default defineConfig({
     // workflow bumps — a copy here would ship stale.
     // activeTab covers the popup reading the current tab's URL and messaging
     // its content script; no broad host permission is needed for that.
-    permissions: ["storage", "activeTab"],
+    // alarms drives the periodic sync in the background entrypoint.
+    permissions: ["storage", "activeTab", "alarms"],
     browser_specific_settings: {
       gecko: {
         id: "fukidashi@thundermiracle.com",

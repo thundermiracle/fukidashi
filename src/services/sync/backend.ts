@@ -1,0 +1,34 @@
+import type { SyncPayload } from "@/core";
+
+/** What a backend hands back, with the version to push against next. */
+export interface RemoteSnapshot {
+  payload: SyncPayload;
+  /** Opaque to the engine — an ETag, a revision id, whatever the store uses. */
+  version: string;
+}
+
+/** Thrown by `push` when the remote moved on since `baseVersion` was read. */
+export class SyncConflictError extends Error {
+  constructor(message = "The remote copy changed while this device was syncing.") {
+    super(message);
+  }
+}
+
+/**
+ * Somewhere a device's notes can be left for its other devices to find.
+ * Deliberately small: a store that can read, write, and say whether it
+ * changed underneath is enough for the engine, so Drive, a sync-code relay
+ * and WebDAV can all sit behind it.
+ */
+export interface SyncBackend {
+  /** The stored payload, or null when nothing has been pushed yet. */
+  pull(): Promise<RemoteSnapshot | null>;
+  /**
+   * Replaces the remote copy, but only if it still reads as `baseVersion`
+   * (null meaning "nothing was there"). Throws `SyncConflictError` otherwise,
+   * which is the engine's cue to pull, merge again and retry.
+   *
+   * Returns the version the payload now has.
+   */
+  push(payload: SyncPayload, baseVersion: string | null): Promise<string>;
+}

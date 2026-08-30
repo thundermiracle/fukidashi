@@ -7,7 +7,7 @@ import {
   type SyncPayload,
   toPageTitle,
 } from "@/core";
-import { NOTES_KEY_PREFIX, notesKey, TITLE_KEY_PREFIX, titleKey, toNotes } from "./notes";
+import { NOTES_KEY_PREFIX, notesKey, TITLE_KEY_PREFIX, titleKey, toNotes } from "../notes";
 
 /**
  * Everything stored, as the sync layer reads it: tombstones included, and

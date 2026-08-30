@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type Note, SyncPayloadError } from "@/core";
 import { createFakeChromeStorage } from "@/testing/fakeChromeStorage";
-import { deleteNote, loadNotes, notesKey, saveNote, savePageTitle, titleKey } from "./notes";
+import { deleteNote, loadNotes, notesKey, saveNote, savePageTitle, titleKey } from "../notes";
 import {
   applySyncPages,
   buildSyncPayload,
@@ -9,7 +9,7 @@ import {
   exportFileName,
   importSyncPayload,
   serializeSyncPayload,
-} from "./sync";
+} from "./storage";
 
 const PAGE = "https://example.com/docs";
 const OTHER = "https://other.test/guide";

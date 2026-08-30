@@ -1,0 +1,200 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createSyncPayload, type Note } from "@/core";
+import { createFakeChromeStorage } from "@/testing/fakeChromeStorage";
+import { createFakeSyncBackend } from "@/testing/fakeSyncBackend";
+import { deleteNote, loadNotes, saveNote, savePageTitle } from "../notes";
+import { SyncConflictError } from "./backend";
+import { syncOnce } from "./engine";
+import { collectSyncPages } from "./storage";
+
+const PAGE = "https://example.com/docs";
+const OTHER = "https://other.test/guide";
+
+function makeNote(id: string, createdAt: number, comment = ""): Note {
+  return {
+    id,
+    comment,
+    color: "yellow",
+    anchor: { exact: `quote ${id}`, prefix: "", suffix: "", start: 0 },
+    createdAt,
+    updatedAt: createdAt,
+  };
+}
+
+/**
+ * Two devices, each with their own storage, sharing one backend — the setup
+ * the engine actually has to work in.
+ */
+function createDevices() {
+  const backend = createFakeSyncBackend();
+  const devices = {
+    desktop: createFakeChromeStorage(),
+    laptop: createFakeChromeStorage(),
+  };
+
+  /** Runs `work` as if it happened on that device. */
+  const on = async <T>(name: keyof typeof devices, work: () => Promise<T>): Promise<T> => {
+    vi.stubGlobal("chrome", devices[name].chrome);
+    return work();
+  };
+
+  return {
+    backend,
+    devices,
+    on,
+    sync: (name: keyof typeof devices) => on(name, () => syncOnce(backend)),
+  };
+}
+
+let single: ReturnType<typeof createFakeChromeStorage>;
+
+beforeEach(() => {
+  single = createFakeChromeStorage();
+  vi.stubGlobal("chrome", single.chrome);
+});
+
+describe("syncOnce", () => {
+  it("pushes what this device has when the remote is empty", async () => {
+    const backend = createFakeSyncBackend();
+    await saveNote(PAGE, makeNote("a", 100));
+
+    const result = await syncOnce(backend);
+
+    expect(result).toEqual({ changedLocally: false, pushed: true });
+    expect(backend.snapshot()?.payload.pages).toMatchObject([{ url: PAGE, notes: [{ id: "a" }] }]);
+  });
+
+  it("takes in what the remote has and this device does not", async () => {
+    const backend = createFakeSyncBackend();
+    backend.put(createSyncPayload([{ url: OTHER, notes: [makeNote("b", 100, "elsewhere")] }], 0));
+
+    const result = await syncOnce(backend);
+
+    expect(result.changedLocally).toBe(true);
+    await expect(loadNotes(OTHER)).resolves.toMatchObject([{ comment: "elsewhere" }]);
+  });
+
+  it("writes nothing on either side when the two already agree", async () => {
+    const backend = createFakeSyncBackend();
+    await saveNote(PAGE, makeNote("a", 100));
+    await syncOnce(backend);
+
+    const listener = vi.fn();
+    single.listeners.add(listener);
+    const result = await syncOnce(backend);
+
+    expect(result).toEqual({ changedLocally: false, pushed: false });
+    expect(listener).not.toHaveBeenCalled();
+    expect(backend.snapshot()?.version).toBe("v1");
+  });
+
+  it("merges again and retries when another device pushed in between", async () => {
+    const backend = createFakeSyncBackend();
+    await saveNote(PAGE, makeNote("a", 100));
+
+    // The first push lands on a remote that moved on a moment earlier.
+    const realPush = backend.push.bind(backend);
+    let firstTry = true;
+    backend.push = async (payload, baseVersion) => {
+      if (firstTry) {
+        firstTry = false;
+        backend.put(createSyncPayload([{ url: OTHER, notes: [makeNote("b", 100)] }], 0));
+        throw new SyncConflictError();
+      }
+      return realPush(payload, baseVersion);
+    };
+
+    const result = await syncOnce(backend);
+
+    expect(result.pushed).toBe(true);
+    expect(backend.snapshot()?.payload.pages.map((page) => page.url)).toEqual([PAGE, OTHER]);
+    await expect(loadNotes(OTHER)).resolves.toMatchObject([{ id: "b" }]);
+  });
+
+  it("gives up when the remote keeps moving", async () => {
+    const backend = createFakeSyncBackend();
+    backend.push = async () => {
+      throw new SyncConflictError();
+    };
+    await saveNote(PAGE, makeNote("a", 100));
+
+    await expect(syncOnce(backend)).rejects.toThrow(SyncConflictError);
+  });
+});
+
+describe("two devices", () => {
+  it("end up with the same notes", async () => {
+    const { backend, on, sync } = createDevices();
+
+    await on("desktop", () => saveNote(PAGE, makeNote("a", 100, "from the desktop")));
+    await on("laptop", () => saveNote(OTHER, makeNote("b", 100, "from the laptop")));
+
+    await sync("desktop");
+    await sync("laptop");
+    await sync("desktop");
+
+    const desktop = await on("desktop", collectSyncPages);
+    const laptop = await on("laptop", collectSyncPages);
+    expect(desktop).toEqual(laptop);
+    expect(desktop.map((page) => page.url)).toEqual([PAGE, OTHER]);
+    expect(backend.snapshot()?.payload.pages).toEqual(desktop);
+  });
+
+  it("carries a deletion across instead of undoing it", async () => {
+    const { on, sync } = createDevices();
+
+    await on("desktop", () => saveNote(PAGE, makeNote("a", 100)));
+    await sync("desktop");
+    await sync("laptop");
+    await expect(on("laptop", () => loadNotes(PAGE))).resolves.toHaveLength(1);
+
+    await on("desktop", () => deleteNote(PAGE, "a"));
+    await sync("desktop");
+    await sync("laptop");
+
+    await expect(on("laptop", () => loadNotes(PAGE))).resolves.toEqual([]);
+    // The device that deleted it does not get it back on the next round either.
+    await sync("desktop");
+    await expect(on("desktop", () => loadNotes(PAGE))).resolves.toEqual([]);
+  });
+
+  it("keeps the edit written last when both changed one note", async () => {
+    const { on, sync } = createDevices();
+
+    await on("desktop", () => saveNote(PAGE, makeNote("a", 100)));
+    await sync("desktop");
+    await sync("laptop");
+
+    await on("desktop", () =>
+      saveNote(PAGE, { ...makeNote("a", 100, "desktop edit"), updatedAt: 500 }),
+    );
+    await on("laptop", () =>
+      saveNote(PAGE, { ...makeNote("a", 100, "laptop edit"), updatedAt: 900 }),
+    );
+
+    await sync("desktop");
+    await sync("laptop");
+    await sync("desktop");
+
+    await expect(on("desktop", () => loadNotes(PAGE))).resolves.toMatchObject([
+      { comment: "laptop edit" },
+    ]);
+  });
+
+  it("settles after one round, with nothing left to write", async () => {
+    const { backend, on, sync } = createDevices();
+
+    await on("desktop", async () => {
+      await saveNote(PAGE, makeNote("a", 100));
+      await savePageTitle(PAGE, "Docs");
+    });
+
+    await sync("desktop");
+    await sync("laptop");
+    await sync("desktop");
+
+    expect(await sync("laptop")).toEqual({ changedLocally: false, pushed: false });
+    expect(await sync("desktop")).toEqual({ changedLocally: false, pushed: false });
+    expect(backend.snapshot()?.payload.pages[0].title).toMatchObject({ text: "Docs" });
+  });
+});
