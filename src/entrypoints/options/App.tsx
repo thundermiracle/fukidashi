@@ -71,15 +71,17 @@ function App() {
       <header className="fk-page__header">
         <img src={logo} className="fk-page__logo" alt="" />
         <div>
-          <h1 className="fk-page__title">Backup</h1>
+          <h1 className="fk-page__title">Fukidashi settings</h1>
           <p className="fk-page__subtitle">
             {`${formatCount(noteCount, "note")} on ${formatCount(pages.length, "page")}`}
           </p>
         </div>
       </header>
 
+      <h2 className="fk-section">Backup</h2>
+
       <section className="fk-card">
-        <h2 className="fk-card__title">Save your notes to a file</h2>
+        <h3 className="fk-card__title">Save your notes to a file</h3>
         <p className="fk-card__body">
           Writes every note you have, including the pages you are not looking at, to one JSON file.
         </p>
@@ -90,7 +92,7 @@ function App() {
       </section>
 
       <section className="fk-card">
-        <h2 className="fk-card__title">Read notes back from a file</h2>
+        <h3 className="fk-card__title">Read notes back from a file</h3>
         <p className="fk-card__body">
           Adds what the file holds to what is already here — nothing on this device is replaced. A
           note edited in two places keeps whichever version was written last, and a note deleted on

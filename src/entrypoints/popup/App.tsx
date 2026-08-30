@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import logo from "@/assets/fukidashi.png";
-import { ArchiveIcon, ArrowLeftIcon, BubbleIcon, ExternalLinkIcon } from "@/components/icons";
+import { ArrowLeftIcon, BubbleIcon, ExternalLinkIcon, GearIcon } from "@/components/icons";
 import { NoteList } from "@/components/NoteList";
 import { SiteList } from "@/components/SiteList";
 import { ToggleSwitch } from "@/components/ToggleSwitch";
@@ -109,9 +109,9 @@ function App() {
 
   const handleDeleteNote = useCallback((note: Note) => deleteNote(listedUrl, note.id), [listedUrl]);
 
-  // Export and import live on their own page: picking a file opens an OS
+  // Backup lives on the settings page, not here: picking a file opens an OS
   // dialog, and that closes the popup before it can read what was picked.
-  const openBackup = useCallback(() => {
+  const openSettings = useCallback(() => {
     chrome.runtime.openOptionsPage();
     window.close();
   }, []);
@@ -191,6 +191,15 @@ function App() {
             <ExternalLinkIcon />
           </button>
         )}
+        <button
+          type="button"
+          className="fk-icon-button"
+          title="Settings"
+          aria-label="Settings"
+          onClick={openSettings}
+        >
+          <GearIcon />
+        </button>
         <span className="fk-popup__count">{showsOnePage ? listedNotes.length : totalNotes}</span>
       </header>
 
@@ -224,11 +233,6 @@ function App() {
           checked={enabled}
           onChange={handleToggle}
         />
-
-        <button type="button" className="fk-transfer__button" onClick={openBackup}>
-          <ArchiveIcon />
-          Backup
-        </button>
       </footer>
     </div>
   );

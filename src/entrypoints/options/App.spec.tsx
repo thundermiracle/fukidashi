@@ -117,7 +117,7 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-describe("the backup page", () => {
+describe("the settings page", () => {
   it("says how much there is to back up", async () => {
     await renderPage();
 

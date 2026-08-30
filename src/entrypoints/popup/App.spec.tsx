@@ -226,7 +226,7 @@ describe("popup", () => {
     // A file picker would close the popup before it could read what was
     // picked, so the popup only points at the page that can.
     await renderPopup();
-    await click(buttonLabelled("Backup"));
+    await click(container.querySelector('[aria-label="Settings"]'));
 
     expect(openOptionsPage).toHaveBeenCalled();
     expect(window.close).toHaveBeenCalled();

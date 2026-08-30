@@ -335,23 +335,3 @@
   padding: 6px 14px 10px;
   border-top: 1px solid var(--fk-divider);
 }
-
-.fk-transfer__button {
-  margin-top: 6px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 8px;
-  border: 1px solid var(--fk-divider);
-  border-radius: 6px;
-  background: none;
-  color: var(--fk-text-muted);
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.fk-transfer__button:hover {
-  background: var(--fk-hover);
-  color: var(--fk-text);
-}

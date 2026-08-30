@@ -62,10 +62,11 @@ export function ExternalLinkIcon({ className }: IconProps) {
   );
 }
 
-export function ArchiveIcon({ className }: IconProps) {
+export function GearIcon({ className }: IconProps) {
   return (
     <svg {...BASE} className={className} aria-hidden="true" focusable="false">
-      <path d="M2.6 5.2h10.8v7.2c0 .5-.4.9-.9.9H3.5c-.5 0-.9-.4-.9-.9V5.2ZM2.2 2.7h11.6v2.5H2.2zM6.5 8h3" />
+      <circle cx="8" cy="8" r="2.1" />
+      <path d="M12.6 9.8a1 1 0 0 0 .2 1.1l.1.1a1.2 1.2 0 1 1-1.7 1.7l-.1-.1a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.9v.2a1.2 1.2 0 0 1-2.4 0v-.1a1 1 0 0 0-.7-.9 1 1 0 0 0-1.1.2l-.1.1a1.2 1.2 0 1 1-1.7-1.7l.1-.1a1 1 0 0 0 .2-1.1 1 1 0 0 0-.9-.6h-.2a1.2 1.2 0 0 1 0-2.4h.1a1 1 0 0 0 .9-.7 1 1 0 0 0-.2-1.1l-.1-.1a1.2 1.2 0 1 1 1.7-1.7l.1.1a1 1 0 0 0 1.1.2h.1a1 1 0 0 0 .6-.9v-.2a1.2 1.2 0 0 1 2.4 0v.1a1 1 0 0 0 .6.9 1 1 0 0 0 1.1-.2l.1-.1a1.2 1.2 0 1 1 1.7 1.7l-.1.1a1 1 0 0 0-.2 1.1v.1a1 1 0 0 0 .9.6h.2a1.2 1.2 0 0 1 0 2.4h-.1a1 1 0 0 0-.9.6Z" />
     </svg>
   );
 }
