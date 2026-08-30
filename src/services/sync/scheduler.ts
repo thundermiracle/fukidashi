@@ -6,7 +6,12 @@ import { saveSyncStatus } from "./status";
 /** Long enough that a burst of edits leaves as one sync, short enough to feel live. */
 const PUSH_DELAY_MS = 5_000;
 
-/** A backstop for what the watchers miss: another device pushing while this one idles. */
+/**
+ * A backstop for what the watchers miss: another device pushing while this one
+ * idles. It needs the "alarms" permission, which is left out of the manifest
+ * until a backend exists — an unused permission is a store-review risk, and
+ * `startSync` is unreachable while `loadSyncBackend` returns null.
+ */
 export const SYNC_ALARM = "fukidashi:sync";
 export const SYNC_PERIOD_MINUTES = 15;
 
