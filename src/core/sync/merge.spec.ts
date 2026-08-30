@@ -144,5 +144,21 @@ describe("mergeSyncPages", () => {
 
       expect(mergeSyncPages([first], [second])).toEqual(mergeSyncPages([second], [first]));
     });
+
+    it("orders by code point, not by whatever language the device is set to", () => {
+      // These sort differently under a locale-aware collation, which would
+      // leave two devices disagreeing about an order neither can settle.
+      const pages = [
+        page([note("x", 100)], undefined, "https://example.com/Zebra"),
+        page([note("y", 100)], undefined, "https://example.com/apple"),
+        page([note("z", 100)], undefined, "https://example.com/Ápple"),
+      ];
+
+      expect(mergeSyncPages(pages, []).map((p) => p.url)).toEqual([
+        "https://example.com/Zebra",
+        "https://example.com/apple",
+        "https://example.com/Ápple",
+      ]);
+    });
   });
 });

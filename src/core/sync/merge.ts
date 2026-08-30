@@ -3,15 +3,25 @@ import type { Note, PageTitle } from "../types";
 import type { SyncPage } from "./types";
 
 /**
+ * Compares by code point rather than through `localeCompare`, which collates
+ * by the host's locale — two devices set to different languages would order
+ * the same pair differently, and the merge would never settle.
+ */
+function compareText(a: string, b: string): number {
+  if (a === b) return 0;
+  return a < b ? -1 : 1;
+}
+
+/**
  * Orders two notes that carry the same id and the same timestamps. Which one
  * wins does not matter, only that every device picks the same one — so the
  * fields are compared in a fixed order.
  */
 function compareRivalNotes(a: Note, b: Note): number {
   return (
-    a.comment.localeCompare(b.comment) ||
-    a.color.localeCompare(b.color) ||
-    a.anchor.exact.localeCompare(b.anchor.exact) ||
+    compareText(a.comment, b.comment) ||
+    compareText(a.color, b.color) ||
+    compareText(a.anchor.exact, b.anchor.exact) ||
     a.anchor.start - b.anchor.start ||
     a.createdAt - b.createdAt
   );
@@ -33,12 +43,12 @@ function pickTitle(a: PageTitle | undefined, b: PageTitle | undefined): PageTitl
   if (!a) return b;
   if (!b) return a;
   if (a.updatedAt !== b.updatedAt) return a.updatedAt > b.updatedAt ? a : b;
-  return a.text.localeCompare(b.text) <= 0 ? a : b;
+  return compareText(a.text, b.text) <= 0 ? a : b;
 }
 
 /** Notes are held in the order they were written, and ties broken by id. */
 function byCreatedAtThenId(a: Note, b: Note): number {
-  return a.createdAt - b.createdAt || a.id.localeCompare(b.id);
+  return a.createdAt - b.createdAt || compareText(a.id, b.id);
 }
 
 /**
@@ -82,7 +92,7 @@ export function mergeSyncPages(a: SyncPage[], b: SyncPage[]): SyncPage[] {
     merged.set(page.url, rival ? mergePage(rival, page) : mergePage(page, page));
   }
 
-  return [...merged.values()].sort((first, second) => first.url.localeCompare(second.url));
+  return [...merged.values()].sort((first, second) => compareText(first.url, second.url));
 }
 
 /**
