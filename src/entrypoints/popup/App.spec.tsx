@@ -218,4 +218,86 @@ describe("popup", () => {
       "No notes on this page yet",
     );
   });
+
+  describe("moving notes between devices", () => {
+    /**
+     * jsdom has neither object URLs nor readable blobs, so the export is
+     * caught as the text it was built from.
+     */
+    function captureDownload() {
+      const saved: { name?: string; text?: string } = {};
+
+      vi.stubGlobal(
+        "Blob",
+        class {
+          constructor(readonly parts: string[]) {}
+        },
+      );
+      vi.stubGlobal("URL", {
+        ...URL,
+        createObjectURL: (blob: { parts: string[] }) => {
+          saved.text = blob.parts.join("");
+          return "blob:export";
+        },
+        revokeObjectURL: vi.fn(),
+      });
+      vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
+        this: HTMLAnchorElement,
+      ) {
+        saved.name = this.download;
+      });
+
+      return saved;
+    }
+
+    async function pickFile(text: string) {
+      const input = container.querySelector(".fk-transfer__file") as HTMLInputElement;
+      // jsdom cannot fill a file input, so the file arrives on the event.
+      Object.defineProperty(input, "files", {
+        configurable: true,
+        value: [{ text: async () => text } as File],
+      });
+      await act(async () => {
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      });
+    }
+
+    it("writes every annotated page out to a file", async () => {
+      const saved = captureDownload();
+      await renderPopup();
+      await click(buttonLabelled("Export"));
+
+      expect(saved.name).toMatch(/^fukidashi-notes-\d{4}-\d{2}-\d{2}\.json$/);
+      expect(JSON.parse(saved.text ?? "").pages.map((page: { url: string }) => page.url)).toEqual([
+        CURRENT_PAGE,
+        OTHER_PAGE,
+      ]);
+      expect(container.querySelector(".fk-transfer__note")?.textContent).toBe("Saved 2 pages.");
+    });
+
+    it("merges an imported file into the notes already stored", async () => {
+      await renderPopup();
+      await pickFile(
+        JSON.stringify({
+          version: 1,
+          exportedAt: 0,
+          pages: [{ url: CURRENT_PAGE, notes: [makeNote("imported", "from the laptop", 40)] }],
+        }),
+      );
+
+      expect(textsOf(".fk-list__comment")).toEqual(["on this page", "from the laptop"]);
+      expect(container.querySelector(".fk-transfer__note")?.textContent).toBe("Merged 1 page.");
+    });
+
+    it("says so when the file cannot be read, and changes nothing", async () => {
+      await renderPopup();
+      await pickFile("not an export");
+
+      expect(textsOf(".fk-list__comment")).toEqual(["on this page"]);
+      expect(container.querySelector(".fk-transfer__note")?.textContent).toBe(
+        "This file is not readable JSON.",
+      );
+    });
+  });
 });

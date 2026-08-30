@@ -9,8 +9,8 @@ import {
   toPageTitle,
 } from "@/core";
 
-const NOTES_KEY_PREFIX = "fukidashi:notes:";
-const TITLE_KEY_PREFIX = "fukidashi:title:";
+export const NOTES_KEY_PREFIX = "fukidashi:notes:";
+export const TITLE_KEY_PREFIX = "fukidashi:title:";
 /** The longest title worth keeping — enough for a headline, not for an essay. */
 const MAX_TITLE_LENGTH = 300;
 
@@ -39,7 +39,7 @@ function byCreatedAt(a: Note, b: Note): number {
 }
 
 /** Reads back what a storage entry holds — tombstones included, oldest note first. */
-function toNotes(value: unknown): Note[] {
+export function toNotes(value: unknown): Note[] {
   return Array.isArray(value) ? [...(value as Note[])].sort(byCreatedAt) : [];
 }
 

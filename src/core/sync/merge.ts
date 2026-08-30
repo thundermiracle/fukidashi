@@ -84,3 +84,11 @@ export function mergeSyncPages(a: SyncPage[], b: SyncPage[]): SyncPage[] {
 
   return [...merged.values()].sort((first, second) => first.url.localeCompare(second.url));
 }
+
+/**
+ * One device's pages in the shape a merge would leave them, so that what is
+ * stored can be compared against what a merge produced.
+ */
+export function canonicalizeSyncPages(pages: SyncPage[]): SyncPage[] {
+  return mergeSyncPages(pages, []);
+}

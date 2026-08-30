@@ -61,3 +61,19 @@ export function ExternalLinkIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+export function DownloadIcon({ className }: IconProps) {
+  return (
+    <svg {...BASE} className={className} aria-hidden="true" focusable="false">
+      <path d="M8 2.5v7M5 6.8 8 9.8l3-3M2.8 12.2h10.4" />
+    </svg>
+  );
+}
+
+export function UploadIcon({ className }: IconProps) {
+  return (
+    <svg {...BASE} className={className} aria-hidden="true" focusable="false">
+      <path d="M8 9.8v-7M5 5.8 8 2.8l3 3M2.8 12.2h10.4" />
+    </svg>
+  );
+}
