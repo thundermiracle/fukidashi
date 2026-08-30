@@ -1,4 +1,12 @@
-import { lastTouched, type Note, normalizePageUrl, type PageNotes } from "@/core";
+import {
+  isLiveNote,
+  lastTouched,
+  liveNotes,
+  type Note,
+  normalizePageUrl,
+  type PageNotes,
+  purgeExpiredTombstones,
+} from "@/core";
 
 const NOTES_KEY_PREFIX = "fukidashi:notes:";
 const TITLE_KEY_PREFIX = "fukidashi:title:";
@@ -15,6 +23,11 @@ export function titleKey(url: string): string {
   return `${TITLE_KEY_PREFIX}${normalizePageUrl(url)}`;
 }
 
+/** The title key belonging to a notes key, without going back through the URL. */
+function titleKeyFor(notesStorageKey: string): string {
+  return TITLE_KEY_PREFIX + notesStorageKey.slice(NOTES_KEY_PREFIX.length);
+}
+
 /** A title is one line of display text, however the page wrote it. */
 function tidyTitle(title: string): string {
   return title.replace(/\s+/g, " ").trim().slice(0, MAX_TITLE_LENGTH);
@@ -24,7 +37,7 @@ function byCreatedAt(a: Note, b: Note): number {
   return a.createdAt - b.createdAt;
 }
 
-/** Reads back what a storage entry holds, oldest note first. */
+/** Reads back what a storage entry holds — tombstones included, oldest note first. */
 function toNotes(value: unknown): Note[] {
   return Array.isArray(value) ? [...(value as Note[])].sort(byCreatedAt) : [];
 }
@@ -35,17 +48,28 @@ async function readNotes(key: string): Promise<Note[]> {
 }
 
 async function writeNotes(key: string, notes: Note[]): Promise<void> {
-  if (notes.length === 0) {
+  const kept = purgeExpiredTombstones(notes, Date.now());
+
+  if (kept.length === 0) {
     await chrome.storage.local.remove(key);
-    // A page nobody has annotated is not listed, so its title has nothing
-    // left to label.
-    await chrome.storage.local.remove(TITLE_KEY_PREFIX + key.slice(NOTES_KEY_PREFIX.length));
+    await chrome.storage.local.remove(titleKeyFor(key));
     return;
   }
-  await chrome.storage.local.set({ [key]: [...notes].sort(byCreatedAt) });
+
+  await chrome.storage.local.set({ [key]: [...kept].sort(byCreatedAt) });
+  // A page nobody has annotated is not listed, so its title has nothing left
+  // to label. Tombstones keep the entry alive for sync, but not the title.
+  if (!kept.some(isLiveNote)) {
+    await chrome.storage.local.remove(titleKeyFor(key));
+  }
 }
 
 export async function loadNotes(url: string): Promise<Note[]> {
+  return liveNotes(await readNotes(notesKey(url)));
+}
+
+/** Everything stored for the page, tombstones included — the sync layer's view. */
+export async function loadNotesWithTombstones(url: string): Promise<Note[]> {
   return readNotes(notesKey(url));
 }
 
@@ -67,11 +91,14 @@ export async function saveNote(url: string, note: Note): Promise<void> {
 export async function deleteNote(url: string, id: string): Promise<void> {
   const key = notesKey(url);
   const notes = await readNotes(key);
+  const index = notes.findIndex((note) => note.id === id);
+  if (index === -1) return;
 
-  await writeNotes(
-    key,
-    notes.filter((note) => note.id !== id),
-  );
+  // The note stays behind as a tombstone so a sync cannot bring it back from
+  // another device's older copy.
+  const now = Date.now();
+  notes[index] = { ...notes[index], updatedAt: now, deletedAt: now };
+  await writeNotes(key, notes);
 }
 
 /**
@@ -106,7 +133,7 @@ export async function loadAllPageNotes(): Promise<PageNotes[]> {
     }
     if (!key.startsWith(NOTES_KEY_PREFIX)) continue;
 
-    const notes = toNotes(value);
+    const notes = liveNotes(toNotes(value));
     if (notes.length > 0) pages.push({ url: key.slice(NOTES_KEY_PREFIX.length), notes });
   }
 
@@ -131,7 +158,7 @@ export function watchNotes(url: string, listener: (notes: Note[]) => void): () =
     areaName: string,
   ) => {
     if (areaName !== "local" || !(key in changes)) return;
-    listener(toNotes(changes[key].newValue));
+    listener(liveNotes(toNotes(changes[key].newValue)));
   };
 
   chrome.storage.onChanged.addListener(handleChange);

@@ -29,6 +29,11 @@ export interface Note {
   anchor: TextAnchor;
   createdAt: number;
   updatedAt: number;
+  /**
+   * When the note was deleted. A deleted note stays stored as a tombstone so
+   * that syncing cannot bring it back from another device's older copy.
+   */
+  deletedAt?: number;
 }
 
 /** The notes of one page, held under the normalized URL they are stored by. */
