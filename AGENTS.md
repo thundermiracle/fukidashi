@@ -53,6 +53,24 @@
 - PRs should include a clear summary, tests run, and screenshots for UI changes.
 - Link related issues when applicable.
 
+## Releasing
+- `.github/workflows/release.yaml` releases on a push to `main` when **the last commit**
+  touched `package.json` (`HEAD~1..HEAD`), and on a manual run from the Actions tab,
+  which releases whatever `target` says whether or not the version moved.
+- Because a push only looks at one commit, the version bump has to be the commit that
+  lands last — or merge with `--no-ff` so the merge commit carries it. Any other edit to
+  `package.json` starts a release too.
+- A store that already holds the version fails the submission rather than skipping it, so
+  retry a half-finished release with a manual run targeting the store that is behind
+  (`chrome` or `firefox`), not by re-running the failed job.
+- `CHROME_REFRESH_TOKEN` dies after six months without a release: Google revokes refresh
+  tokens left unused that long, whatever the consent screen's publishing status. The
+  symptom is `invalid_grant` from `oauth2.googleapis.com/token` — `invalid_client` would
+  mean the client ID or secret is wrong instead, which is a different repair.
+- Get a new one with `node scripts/get-chrome-refresh-token.mjs`, then update that one
+  secret. Do not reach for `wxt submit init`: it asks Google for the out-of-band
+  redirect, which Google stopped accepting in January 2023, and 6.1.1 still does.
+
 ## Security & Configuration Tips
 - Extension settings live in `wxt.config.ts`; keep permissions minimal.
 - Keep logic in `src/core/` pure and side-effect free for easier review.
