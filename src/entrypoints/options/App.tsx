@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import logo from "@/assets/fukidashi.png";
 import { DownloadIcon, UploadIcon } from "@/components/icons";
-import { formatCount, type PageNotes } from "@/core";
+import {
+  formatCount,
+  liveNotes,
+  MARKDOWN_FLAVORS,
+  type MarkdownFlavor,
+  markdownFileName,
+  type PageNotes,
+  renderMarkdown,
+} from "@/core";
 import { loadAllPageNotes, watchAllNotes } from "@/services/notes";
 import {
   buildSyncPayload,
@@ -13,10 +21,26 @@ import "./App.css";
 
 type Outcome = { kind: "done" | "failed"; message: string };
 
+const FLAVOR_LABELS: Record<MarkdownFlavor, string> = {
+  notion: "Notion",
+  obsidian: "Obsidian",
+};
+
+/** Hands the browser a file to save, the only way an extension page can. */
+function download(name: string, text: string, type: string): void {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 function App() {
   const [pages, setPages] = useState<PageNotes[]>([]);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [busy, setBusy] = useState(false);
+  const [flavor, setFlavor] = useState<MarkdownFlavor>("notion");
 
   useEffect(() => {
     loadAllPageNotes().then(setPages);
@@ -29,14 +53,11 @@ function App() {
     setBusy(true);
     try {
       const payload = await buildSyncPayload();
-      const url = URL.createObjectURL(
-        new Blob([serializeSyncPayload(payload)], { type: "application/json" }),
+      download(
+        exportFileName(payload.exportedAt),
+        serializeSyncPayload(payload),
+        "application/json",
       );
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = exportFileName(payload.exportedAt);
-      link.click();
-      URL.revokeObjectURL(url);
 
       setOutcome({ kind: "done", message: `Saved ${formatCount(payload.pages.length, "page")}.` });
     } catch (error) {
@@ -46,6 +67,34 @@ function App() {
       setBusy(false);
     }
   }, []);
+
+  const handleExportMarkdown = useCallback(async () => {
+    setBusy(true);
+    try {
+      const payload = await buildSyncPayload();
+      download(
+        markdownFileName(payload.exportedAt, flavor),
+        renderMarkdown(payload, flavor),
+        "text/markdown",
+      );
+
+      // Only the notes the user still has are written out, so the count is
+      // taken from those rather than from the payload's tombstones.
+      const written = payload.pages.reduce(
+        (total, page) => total + liveNotes(page.notes).length,
+        0,
+      );
+      setOutcome({
+        kind: "done",
+        message: `Saved ${formatCount(written, "note")} for ${FLAVOR_LABELS[flavor]}.`,
+      });
+    } catch (error) {
+      console.error("Fukidashi: could not write the notes as Markdown", error);
+      setOutcome({ kind: "failed", message: "Could not write the notes as Markdown." });
+    } finally {
+      setBusy(false);
+    }
+  }, [flavor]);
 
   const handleImport = useCallback(async (file: File) => {
     setBusy(true);
@@ -114,6 +163,44 @@ function App() {
             }}
           />
         </label>
+      </section>
+
+      <h2 className="fk-section">Markdown</h2>
+
+      <section className="fk-card">
+        <h3 className="fk-card__title">Take your notes to a notes app</h3>
+        <p className="fk-card__body">
+          One Markdown file holding every note, under the page it was taken on. Notion reads plain
+          Markdown; Obsidian gets the properties, callouts and highlights it understands. This one
+          is written to be read — only the file above reads back in.
+        </p>
+        <div className="fk-card__row">
+          <label className="fk-field" htmlFor="fk-flavor">
+            Format
+            <select
+              id="fk-flavor"
+              className="fk-select"
+              value={flavor}
+              disabled={busy}
+              onChange={(event) => setFlavor(event.target.value as MarkdownFlavor)}
+            >
+              {MARKDOWN_FLAVORS.map((option) => (
+                <option key={option} value={option}>
+                  {FLAVOR_LABELS[option]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            className="fk-button"
+            disabled={busy}
+            onClick={handleExportMarkdown}
+          >
+            <DownloadIcon />
+            Export Markdown
+          </button>
+        </div>
       </section>
 
       {outcome && (

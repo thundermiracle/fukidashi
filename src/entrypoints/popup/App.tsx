@@ -9,6 +9,7 @@ import {
   formatPagePath,
   formatPageUrl,
   groupBySite,
+  inPageOrder,
   type Note,
   normalizePageUrl,
   type PageNotes,
@@ -19,11 +20,6 @@ import { requestFocusNote } from "@/services/messages";
 import { deleteNote, loadAllPageNotes, watchAllNotes } from "@/services/notes";
 import { loadSettings, saveSettings } from "@/services/settings";
 import "./App.css";
-
-/** Notes are listed in the order they appear in the page text. */
-function inPageOrder(notes: Note[]): Note[] {
-  return [...notes].sort((a, b) => a.anchor.start - b.anchor.start);
-}
 
 function notesOf(pages: PageNotes[], url: string): Note[] {
   return pages.find((page) => page.url === url)?.notes ?? [];

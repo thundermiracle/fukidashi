@@ -57,6 +57,37 @@
   font-size: 13px;
 }
 
+.fk-card__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.fk-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--fk-text-muted);
+  font-size: 13px;
+}
+
+.fk-select {
+  padding: 6px 10px;
+  border: 1px solid var(--fk-divider);
+  border-radius: 7px;
+  background: var(--fk-surface);
+  color: var(--fk-text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.fk-select:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .fk-button {
   display: inline-flex;
   align-items: center;

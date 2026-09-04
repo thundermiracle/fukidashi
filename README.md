@@ -22,6 +22,10 @@ memo — and find it again the next time you open the page.
   carrying notes under the site it belongs to. Pick a page to read its notes,
   or open it again in a tab; picking one of its notes opens the page and jumps
   straight to it.
+- **Take them elsewhere** — the settings page writes every note out to one
+  file: JSON to keep as a backup and read back in later, or Markdown to drop
+  into a notes app — the plain kind Notion reads, or the properties, callouts
+  and highlights Obsidian understands.
 - **Reads translations too** — a page opened through Google Translate is still
   that page, so notes taken on either belong to the same list, and highlights
   survive the text being swapped out. The memos themselves are left in the

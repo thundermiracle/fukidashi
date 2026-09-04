@@ -54,8 +54,9 @@ function outcome(): string {
   return container.querySelector(".fk-outcome")?.textContent ?? "";
 }
 
-/** jsdom has neither object URLs nor readable blobs, so the export is caught
- *  as the text it was built from. */
+/** jsdom has no readable blobs, so the export is caught as the text it was
+ *  built from. Only the object-URL calls are taken over: the URL constructor
+ *  itself has to keep working, because the export names pages through it. */
 function captureDownload() {
   const saved: { name?: string; text?: string } = {};
 
@@ -65,14 +66,11 @@ function captureDownload() {
       constructor(readonly parts: string[]) {}
     },
   );
-  vi.stubGlobal("URL", {
-    ...URL,
-    createObjectURL: (blob: { parts: string[] }) => {
-      saved.text = blob.parts.join("");
-      return "blob:export";
-    },
-    revokeObjectURL: vi.fn(),
+  vi.spyOn(URL, "createObjectURL").mockImplementation((blob) => {
+    saved.text = (blob as unknown as { parts: string[] }).parts.join("");
+    return "blob:export";
   });
+  vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
   vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
     this: HTMLAnchorElement,
   ) {
@@ -80,6 +78,14 @@ function captureDownload() {
   });
 
   return saved;
+}
+
+async function pickFormat(value: string) {
+  const select = container.querySelector(".fk-select") as HTMLSelectElement;
+  await act(async () => {
+    select.value = value;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
 }
 
 async function pickFile(text: string) {
@@ -135,6 +141,32 @@ describe("the settings page", () => {
       OTHER_PAGE,
     ]);
     expect(outcome()).toBe("Saved 2 pages.");
+  });
+
+  it("writes plain Markdown for Notion", async () => {
+    const saved = captureDownload();
+    await renderPage();
+    await click(buttonLabelled("Export Markdown"));
+
+    expect(saved.name).toMatch(/^fukidashi-notes-notion-\d{4}-\d{2}-\d{2}\.md$/);
+    expect(saved.text).toContain("## example.com/docs");
+    expect(saved.text).toContain("> quote a");
+    expect(saved.text).toContain("on this page");
+    expect(saved.text).not.toContain("==");
+    expect(outcome()).toBe("Saved 2 notes for Notion.");
+  });
+
+  it("writes Obsidian's own Markdown when that is the format picked", async () => {
+    const saved = captureDownload();
+    await renderPage();
+    await pickFormat("obsidian");
+    await click(buttonLabelled("Export Markdown"));
+
+    expect(saved.name).toMatch(/^fukidashi-notes-obsidian-\d{4}-\d{2}-\d{2}\.md$/);
+    expect(saved.text?.startsWith("---\n")).toBe(true);
+    expect(saved.text).toContain("> [!quote] Yellow");
+    expect(saved.text).toContain("> ==quote a==");
+    expect(outcome()).toBe("Saved 2 notes for Obsidian.");
   });
 
   it("merges an imported file into the notes already stored", async () => {
