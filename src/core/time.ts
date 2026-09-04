@@ -21,3 +21,8 @@ export function formatRelativeTime(timestamp: number, now: number = Date.now()):
     ...(sameYear ? {} : { year: "numeric" }),
   });
 }
+
+/** A timestamp as the calendar day it fell on, in UTC: "2026-03-04". */
+export function formatIsoDay(timestamp: number): string {
+  return new Date(timestamp).toISOString().slice(0, 10);
+}

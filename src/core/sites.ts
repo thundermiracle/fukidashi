@@ -6,6 +6,11 @@ export function lastTouched(notes: Note[]): number {
   return notes.reduce((latest, note) => Math.max(latest, note.updatedAt), 0);
 }
 
+/** Notes in the order they are met in the page text — the order they are read in. */
+export function inPageOrder(notes: Note[]): Note[] {
+  return [...notes].sort((a, b) => a.anchor.start - b.anchor.start);
+}
+
 /**
  * Gathers annotated pages under the site they belong to. Sites and pages are
  * both ordered by their most recent note, so the reading the user is in the

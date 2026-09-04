@@ -1,6 +1,7 @@
 import {
   canonicalizeSyncPages,
   createSyncPayload,
+  formatIsoDay,
   mergeSyncPages,
   parseSyncPayload,
   type SyncPage,
@@ -96,7 +97,7 @@ export function serializeSyncPayload(payload: SyncPayload): string {
 
 /** What an export is called, dated so a folder of them stays readable. */
 export function exportFileName(exportedAt: number): string {
-  return `fukidashi-notes-${new Date(exportedAt).toISOString().slice(0, 10)}.json`;
+  return `fukidashi-notes-${formatIsoDay(exportedAt)}.json`;
 }
 
 /**
