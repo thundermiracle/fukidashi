@@ -4,6 +4,7 @@ import {
   formatIsoDay,
   mergeSyncPages,
   parseSyncPayload,
+  purgeSyncPages,
   type SyncPage,
   type SyncPayload,
   toPageTitle,
@@ -46,33 +47,41 @@ function same(stored: unknown, wanted: unknown): boolean {
 }
 
 /**
- * Writes the given pages, touching only the entries whose contents actually
- * differ. Leaving unchanged entries alone is what keeps a sync from waking
- * the watchers — and so the next sync — over notes nobody edited.
+ * Brings storage in line with the given pages. What is stored is read again
+ * and merged with them first, so an edit the user made while a sync was
+ * reading is kept rather than overwritten by the merge — its newer
+ * `updatedAt` wins — and tombstones past their time are dropped on the way.
+ * Only the entries whose contents actually differ are touched: leaving the
+ * rest alone is what keeps a sync from waking the watchers, and so the next
+ * sync, over notes nobody edited.
  *
  * Returns whether anything was written.
  */
-export async function applySyncPages(pages: SyncPage[]): Promise<boolean> {
-  const local = new Map((await collectSyncPages()).map((page) => [page.url, page]));
+export async function applySyncPages(
+  pages: SyncPage[],
+  now: number = Date.now(),
+): Promise<boolean> {
+  const stored = new Map((await collectSyncPages()).map((page) => [page.url, page]));
   const set: Record<string, unknown> = {};
   const remove: string[] = [];
 
-  for (const page of canonicalizeSyncPages(pages)) {
-    const stored = local.get(page.url);
-    const notesEntry = notesKey(page.url);
-    const titleEntry = titleKey(page.url);
+  for (const page of purgeSyncPages(mergeSyncPages([...stored.values()], pages), now)) {
+    const before = stored.get(page.url);
+    stored.delete(page.url);
 
-    if (page.notes.length === 0) {
-      if (stored) remove.push(notesEntry);
-    } else if (!same(stored?.notes, page.notes)) {
-      set[notesEntry] = page.notes;
-    }
+    if (!same(before?.notes, page.notes)) set[notesKey(page.url)] = page.notes;
 
     if (!page.title) {
-      if (stored?.title) remove.push(titleEntry);
-    } else if (!same(stored?.title, page.title)) {
-      set[titleEntry] = page.title;
+      if (before?.title) remove.push(titleKey(page.url));
+    } else if (!same(before?.title, page.title)) {
+      set[titleKey(page.url)] = page.title;
     }
+  }
+
+  // What is left held nothing but tombstones past their time: the page goes.
+  for (const page of stored.values()) {
+    remove.push(notesKey(page.url));
+    if (page.title) remove.push(titleKey(page.url));
   }
 
   if (Object.keys(set).length > 0) await chrome.storage.local.set(set);
@@ -116,6 +125,6 @@ export async function importSyncPayload(text: string): Promise<number> {
   }
 
   const payload = parseSyncPayload(parsed);
-  await applySyncPages(mergeSyncPages(await collectSyncPages(), payload.pages));
+  await applySyncPages(payload.pages);
   return payload.pages.length;
 }

@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createSyncPayload, type Note } from "@/core";
+import { createSyncPayload, type Note, TOMBSTONE_TTL_MS } from "@/core";
 import { createFakeChromeStorage } from "@/testing/fakeChromeStorage";
 import { createFakeSyncBackend } from "@/testing/fakeSyncBackend";
-import { deleteNote, loadNotes, saveNote, savePageTitle } from "../notes";
+import { deleteNote, loadNotes, notesKey, saveNote, savePageTitle } from "../notes";
 import { SyncConflictError } from "./backend";
 import { syncOnce } from "./engine";
 import { collectSyncPages } from "./storage";
@@ -42,7 +42,7 @@ function createDevices() {
     backend,
     devices,
     on,
-    sync: (name: keyof typeof devices) => on(name, () => syncOnce(backend)),
+    sync: (name: keyof typeof devices, now?: number) => on(name, () => syncOnce(backend, now)),
   };
 }
 
@@ -86,6 +86,35 @@ describe("syncOnce", () => {
     expect(result).toEqual({ changedLocally: false, pushed: false });
     expect(listener).not.toHaveBeenCalled();
     expect(backend.snapshot()?.version).toBe("v1");
+  });
+
+  it("keeps an edit made while the merge was being applied", async () => {
+    const backend = createFakeSyncBackend();
+    backend.put(createSyncPayload([{ url: OTHER, notes: [makeNote("b", 100)] }], 0));
+    await saveNote(PAGE, makeNote("a", 100, "first"));
+
+    // The user edits the note after the sync has read local storage and
+    // before it writes the merge back.
+    const realPull = backend.pull.bind(backend);
+    backend.pull = async () => {
+      const snapshot = await realPull();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await saveNote(PAGE, { ...makeNote("a", 100, "edited meanwhile"), updatedAt: 200 });
+      return snapshot;
+    };
+    await syncOnce(backend);
+
+    await expect(loadNotes(PAGE)).resolves.toMatchObject([{ comment: "edited meanwhile" }]);
+    // The push carried what was merged; the edit follows with the next sync.
+    const pushed = (comment: string) =>
+      expect(
+        backend.snapshot()?.payload.pages.find((page) => page.url === PAGE)?.notes,
+      ).toMatchObject([{ comment }]);
+    pushed("first");
+
+    backend.pull = realPull;
+    await syncOnce(backend);
+    pushed("edited meanwhile");
   });
 
   it("merges again and retries when another device pushed in between", async () => {
@@ -156,6 +185,26 @@ describe("two devices", () => {
     // The device that deleted it does not get it back on the next round either.
     await sync("desktop");
     await expect(on("desktop", () => loadNotes(PAGE))).resolves.toEqual([]);
+  });
+
+  it("lets a deletion go from both sides once its tombstone has done its job", async () => {
+    const { backend, devices, on, sync } = createDevices();
+
+    await on("desktop", async () => {
+      await saveNote(PAGE, makeNote("a", 100));
+      await deleteNote(PAGE, "a");
+    });
+    await sync("desktop");
+    await sync("laptop");
+    expect(devices.laptop.data[notesKey(PAGE)]).toMatchObject([{ deletedAt: expect.any(Number) }]);
+
+    const later = Date.now() + TOMBSTONE_TTL_MS;
+    await sync("desktop", later);
+    await sync("laptop", later);
+
+    expect(devices.desktop.data[notesKey(PAGE)]).toBeUndefined();
+    expect(devices.laptop.data[notesKey(PAGE)]).toBeUndefined();
+    expect(backend.snapshot()?.payload.pages).toEqual([]);
   });
 
   it("keeps the edit written last when both changed one note", async () => {

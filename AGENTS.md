@@ -7,10 +7,13 @@
 - `src/components/` contains React UI pieces; `src/services/` hosts shared service logic
   (storage, highlight rendering, messaging).
 - `src/services/sync/` holds the cross-device sync layer: the `SyncBackend` interface,
-  the pull-merge-push engine and its scheduler. No backend is configured yet —
-  `loadSyncBackend` returns null, so the background entrypoint stays idle.
-- `src/testing/` holds test helpers: a fake `chrome.storage`, a fake sync backend, and
-  the Vitest setup file that fills in `Range.getBoundingClientRect` and
+  the pull-merge-push engine, its scheduler, and the per-device config and status
+  (`fukidashi:sync:config`, `fukidashi:sync-status`). The scheduler registers its
+  listeners synchronously and looks the backend up lazily through
+  `loadSyncBackend(config)`, which still returns null — so the background entrypoint
+  stays idle. The Drive backend is designed in `docs/sync-design.md`.
+- `src/testing/` holds test helpers: fakes for `chrome.storage`, `chrome.alarms`, the
+  runtime's start-up events and the sync backend, and the Vitest setup file that fills in `Range.getBoundingClientRect` and
   `Element.scrollIntoView`, which jsdom does not implement.
 - `src/assets/` stores assets imported from code; `public/` stores files copied as-is
   (`public/icon/*.png` is picked up by WXT as the extension icon).
