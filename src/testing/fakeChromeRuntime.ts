@@ -21,16 +21,27 @@ function createEvent<T>() {
 export function createFakeChromeRuntime() {
   const onStartup = createEvent<void>();
   const onInstalled = createEvent<chrome.runtime.InstalledDetails>();
+  const onMessage = createEvent<unknown>();
 
   return {
     startup: () => onStartup.fire(undefined),
     installed: (reason: chrome.runtime.InstalledDetails["reason"] = "update") =>
       onInstalled.fire({ reason }),
-    listeners: { onStartup: onStartup.listeners, onInstalled: onInstalled.listeners },
+    /** Delivers a message the way a page's `sendMessage` would. */
+    send: (message: unknown) => onMessage.fire(message),
+    listeners: {
+      onStartup: onStartup.listeners,
+      onInstalled: onInstalled.listeners,
+      onMessage: onMessage.listeners,
+    },
     chrome: {
       runtime: {
         onStartup: onStartup.event,
         onInstalled: onInstalled.event,
+        onMessage: onMessage.event,
+        sendMessage: async (message: unknown) => {
+          onMessage.fire(message);
+        },
       },
     },
   };

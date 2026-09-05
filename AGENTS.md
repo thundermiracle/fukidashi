@@ -10,12 +10,14 @@
   the pull-merge-push engine, its scheduler, and the per-device config and status
   (`fukidashi:sync:config`, `fukidashi:sync-status`). The scheduler registers its
   listeners synchronously and looks the backend up lazily through
-  `loadSyncBackend(config)`, which still returns null — so the background entrypoint
-  stays idle. `src/services/sync/drive/` holds the Google Drive backend: `auth.ts` (the
-  implicit OAuth flow through `chrome.identity.launchWebAuthFlow`, the stored token),
-  `api.ts` (the few Drive calls, retried once with a renewed token) and `backend.ts`
-  (one file in the app folder, with a version check standing in for the If-Match that
-  Drive API v3 lacks). The design is in `docs/sync-design.md`.
+  `loadSyncBackend(config)`; until the user connects on the settings page there is no
+  config, and the background entrypoint stays idle. `src/services/sync/drive/` holds the
+  Google Drive backend: `auth.ts` (the implicit OAuth flow through
+  `chrome.identity.launchWebAuthFlow`, the stored token), `api.ts` (the few Drive calls,
+  retried once with a renewed token), `backend.ts` (one file in the app folder, with a
+  version check standing in for the If-Match that Drive API v3 lacks) and
+  `connection.ts` (connecting and disconnecting, as the settings page does it). The
+  design is in `docs/sync-design.md`.
 - `src/testing/` holds test helpers: fakes for `chrome.storage`, `chrome.alarms`,
   `chrome.identity`, the runtime's start-up events, the sync backend and Google Drive
   (behind a `fetch` of its own), and the Vitest setup file that fills in `Range.getBoundingClientRect` and
@@ -83,7 +85,9 @@
   redirect, which Google stopped accepting in January 2023, and 6.1.1 still does.
 
 ## Security & Configuration Tips
-- Extension settings live in `wxt.config.ts`; keep permissions minimal.
+- Extension settings live in `wxt.config.ts`; keep permissions minimal. `identity` and
+  `alarms` are there for the Drive sync: the sign-in, and the timer that picks up what
+  other devices pushed.
 - `.env` (see `.env.example`) carries two build-time values: `WXT_GOOGLE_CLIENT_ID`, the
   OAuth client the Drive sync signs in with, and `WXT_EXTENSION_KEY`, the store build's
   public key, which gives a Chrome dev build the store build's extension id so the OAuth

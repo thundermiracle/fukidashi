@@ -38,6 +38,7 @@ export {
   signOutOfDrive,
 } from "./drive/auth";
 export { createDriveBackend, DRIVE_FILE_NAME } from "./drive/backend";
+export { connectDrive, disconnectDrive } from "./drive/connection";
 export { type SyncResult, syncOnce } from "./engine";
 export {
   type BackendFactory,

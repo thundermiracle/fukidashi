@@ -4,6 +4,7 @@ import { createFakeChromeAlarms } from "@/testing/fakeChromeAlarms";
 import { createFakeChromeRuntime } from "@/testing/fakeChromeRuntime";
 import { createFakeChromeStorage } from "@/testing/fakeChromeStorage";
 import { createFakeSyncBackend } from "@/testing/fakeSyncBackend";
+import { SYNC_NOW } from "../messages";
 import { saveNote } from "../notes";
 import { type SyncBackend, SyncSignedOutError } from "./backend";
 import { saveSyncConfig } from "./config";
@@ -246,6 +247,18 @@ describe("startSync", () => {
     expect(attempts()).toBe(2);
   });
 
+  it("runs right away when the settings page asks, even while signed out", async () => {
+    const attempts = failWith(() => new SyncSignedOutError());
+    start();
+    await settle();
+    expect(attempts()).toBe(1);
+
+    runtime.send({ type: SYNC_NOW });
+    await settle();
+
+    expect(attempts()).toBe(2);
+  });
+
   it("stops trying once the backend needs a sign-in", async () => {
     const attempts = failWith(() => new SyncSignedOutError());
     const controller = start();
@@ -314,6 +327,7 @@ describe("startSync", () => {
     controller.stop();
     await saveNote(PAGE, makeNote("a", 100));
     alarms.fire(SYNC_ALARM);
+    runtime.send({ type: SYNC_NOW });
     await settle();
 
     expect(backend.pulls()).toBe(before);
