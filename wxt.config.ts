@@ -5,7 +5,7 @@ export default defineConfig({
   modules: ["@wxt-dev/module-react"],
   srcDir: "src",
   outDir: "dist",
-  manifest: {
+  manifest: ({ browser, mode }) => ({
     name: "Fukidashi",
     description: "Add comments and notes to any web page",
     // The version is taken from package.json, which is what the release
@@ -13,6 +13,13 @@ export default defineConfig({
     // activeTab covers the popup reading the current tab's URL and messaging
     // its content script; no broad host permission is needed for that.
     permissions: ["storage", "activeTab"],
+    // A dev build carrying the store build's public key gets the same
+    // extension id, so the OAuth redirect registered for the store build
+    // (`https://<id>.chromiumapp.org/`) is the one Google sends it back to.
+    // The key lives in `.env`; without it the dev build keeps its own id.
+    ...(browser === "chrome" && mode === "development" && process.env.WXT_EXTENSION_KEY
+      ? { key: process.env.WXT_EXTENSION_KEY }
+      : {}),
     browser_specific_settings: {
       gecko: {
         id: "fukidashi@thundermiracle.com",
@@ -22,7 +29,7 @@ export default defineConfig({
         },
       },
     },
-  },
+  }),
   webExt: {
     binaries: {
       // use brave browser

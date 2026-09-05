@@ -1,9 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createSyncPayload, type Note, TOMBSTONE_TTL_MS } from "@/core";
+import {
+  createSyncPayload,
+  type Note,
+  type SyncPage,
+  type SyncPayload,
+  TOMBSTONE_TTL_MS,
+} from "@/core";
 import { createFakeChromeStorage } from "@/testing/fakeChromeStorage";
+import { createFakeDrive } from "@/testing/fakeDrive";
 import { createFakeSyncBackend } from "@/testing/fakeSyncBackend";
 import { deleteNote, loadNotes, notesKey, saveNote, savePageTitle } from "../notes";
-import { SyncConflictError } from "./backend";
+import { type SyncBackend, SyncConflictError, SyncSignedOutError } from "./backend";
+import { createDriveApi } from "./drive/api";
+import { createDriveBackend, DRIVE_FILE_NAME } from "./drive/backend";
 import { syncOnce } from "./engine";
 import { collectSyncPages } from "./storage";
 
@@ -21,12 +30,51 @@ function makeNote(id: string, createdAt: number, comment = ""): Note {
   };
 }
 
+/** A remote two devices share, and a way for a test to read what it holds. */
+interface Remote {
+  /** The backend one device talks through; each device gets its own. */
+  backendFor(device: string): SyncBackend;
+  /** The pages the remote copy holds, or undefined while there is none. */
+  pages(): SyncPage[] | undefined;
+}
+
+function fakeBackendRemote(): Remote {
+  const backend = createFakeSyncBackend();
+  return { backendFor: () => backend, pages: () => backend.snapshot()?.payload.pages };
+}
+
+/** Google Drive as the fake stands in for it, with a client per device. */
+function driveRemote(): Remote {
+  const drive = createFakeDrive();
+  const backends = new Map<string, SyncBackend>();
+  return {
+    backendFor: (device) => {
+      let backend = backends.get(device);
+      if (!backend) {
+        drive.accept(`token-${device}`);
+        const bearer = {
+          current: async () => `token-${device}`,
+          renewed: async () => {
+            throw new SyncSignedOutError();
+          },
+        };
+        backend = createDriveBackend(createDriveApi(bearer, drive.fetch));
+        backends.set(device, backend);
+      }
+      return backend;
+    },
+    pages: () => {
+      const text = drive.content(DRIVE_FILE_NAME);
+      return text === undefined ? undefined : (JSON.parse(text) as SyncPayload).pages;
+    },
+  };
+}
+
 /**
- * Two devices, each with their own storage, sharing one backend — the setup
+ * Two devices, each with their own storage, sharing one remote — the setup
  * the engine actually has to work in.
  */
-function createDevices() {
-  const backend = createFakeSyncBackend();
+function createDevices(remote: Remote) {
   const devices = {
     desktop: createFakeChromeStorage(),
     laptop: createFakeChromeStorage(),
@@ -39,10 +87,11 @@ function createDevices() {
   };
 
   return {
-    backend,
+    remote,
     devices,
     on,
-    sync: (name: keyof typeof devices, now?: number) => on(name, () => syncOnce(backend, now)),
+    sync: (name: keyof typeof devices, now?: number) =>
+      on(name, () => syncOnce(remote.backendFor(name), now)),
   };
 }
 
@@ -151,9 +200,12 @@ describe("syncOnce", () => {
   });
 });
 
-describe("two devices", () => {
+describe.each([
+  ["a fake backend", fakeBackendRemote],
+  ["Google Drive", driveRemote],
+])("two devices through %s", (_name, createRemote) => {
   it("end up with the same notes", async () => {
-    const { backend, on, sync } = createDevices();
+    const { remote, on, sync } = createDevices(createRemote());
 
     await on("desktop", () => saveNote(PAGE, makeNote("a", 100, "from the desktop")));
     await on("laptop", () => saveNote(OTHER, makeNote("b", 100, "from the laptop")));
@@ -166,11 +218,11 @@ describe("two devices", () => {
     const laptop = await on("laptop", collectSyncPages);
     expect(desktop).toEqual(laptop);
     expect(desktop.map((page) => page.url)).toEqual([PAGE, OTHER]);
-    expect(backend.snapshot()?.payload.pages).toEqual(desktop);
+    expect(remote.pages()).toEqual(desktop);
   });
 
   it("carries a deletion across instead of undoing it", async () => {
-    const { on, sync } = createDevices();
+    const { on, sync } = createDevices(createRemote());
 
     await on("desktop", () => saveNote(PAGE, makeNote("a", 100)));
     await sync("desktop");
@@ -188,7 +240,7 @@ describe("two devices", () => {
   });
 
   it("lets a deletion go from both sides once its tombstone has done its job", async () => {
-    const { backend, devices, on, sync } = createDevices();
+    const { remote, devices, on, sync } = createDevices(createRemote());
 
     await on("desktop", async () => {
       await saveNote(PAGE, makeNote("a", 100));
@@ -204,11 +256,11 @@ describe("two devices", () => {
 
     expect(devices.desktop.data[notesKey(PAGE)]).toBeUndefined();
     expect(devices.laptop.data[notesKey(PAGE)]).toBeUndefined();
-    expect(backend.snapshot()?.payload.pages).toEqual([]);
+    expect(remote.pages()).toEqual([]);
   });
 
   it("keeps the edit written last when both changed one note", async () => {
-    const { on, sync } = createDevices();
+    const { on, sync } = createDevices(createRemote());
 
     await on("desktop", () => saveNote(PAGE, makeNote("a", 100)));
     await sync("desktop");
@@ -231,7 +283,7 @@ describe("two devices", () => {
   });
 
   it("settles after one round, with nothing left to write", async () => {
-    const { backend, on, sync } = createDevices();
+    const { remote, on, sync } = createDevices(createRemote());
 
     await on("desktop", async () => {
       await saveNote(PAGE, makeNote("a", 100));
@@ -244,6 +296,6 @@ describe("two devices", () => {
 
     expect(await sync("laptop")).toEqual({ changedLocally: false, pushed: false });
     expect(await sync("desktop")).toEqual({ changedLocally: false, pushed: false });
-    expect(backend.snapshot()?.payload.pages[0].title).toMatchObject({ text: "Docs" });
+    expect(remote.pages()?.[0].title).toMatchObject({ text: "Docs" });
   });
 });

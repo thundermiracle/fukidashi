@@ -23,6 +23,13 @@ export function createSyncPayload(pages: SyncPage[], exportedAt: number): SyncPa
 /** Thrown for anything that is not a payload this version can read. */
 export class SyncPayloadError extends Error {}
 
+/**
+ * Thrown for a payload written by a newer version of Fukidashi. Unlike a
+ * payload that is simply broken, this one fixes itself once the extension
+ * updates, so the sync layer tells the two apart.
+ */
+export class SyncVersionError extends SyncPayloadError {}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -96,7 +103,7 @@ export function parseSyncPayload(value: unknown): SyncPayload {
     throw new SyncPayloadError("This file is not a Fukidashi export.");
   }
   if (value.version > SYNC_FORMAT_VERSION) {
-    throw new SyncPayloadError("This file was written by a newer version of Fukidashi.");
+    throw new SyncVersionError("This file was written by a newer version of Fukidashi.");
   }
 
   return {
