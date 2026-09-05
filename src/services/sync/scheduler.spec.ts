@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { type Note, SyncPayloadError } from "@/core";
+import { type Note, SyncVersionError } from "@/core";
 import { createFakeChromeAlarms } from "@/testing/fakeChromeAlarms";
 import { createFakeChromeRuntime } from "@/testing/fakeChromeRuntime";
 import { createFakeChromeStorage } from "@/testing/fakeChromeStorage";
@@ -264,7 +264,7 @@ describe("startSync", () => {
   });
 
   it("stops trying when the remote needs a newer version, until one is installed", async () => {
-    const attempts = failWith(() => new SyncPayloadError("written by a newer version"));
+    const attempts = failWith(() => new SyncVersionError("written by a newer version"));
     start();
     await settle();
     expect(await loadSyncStatus()).toMatchObject({

@@ -4,6 +4,7 @@ export {
   SyncConflictError,
   SyncSignedOutError,
 } from "./backend";
+export { jsonCodec, type PayloadCodec } from "./codec";
 export {
   isSyncConfigKey,
   loadSyncConfig,
@@ -13,6 +14,30 @@ export {
   watchSyncConfig,
 } from "./config";
 export { loadSyncBackend } from "./configured";
+export {
+  createDriveApi,
+  type DriveApi,
+  DriveApiError,
+  type DriveFile,
+  MAX_UPLOAD_BYTES,
+  PayloadTooLargeError,
+} from "./drive/api";
+export {
+  type BearerSource,
+  createDriveBearerSource,
+  DRIVE_TOKEN_KEY,
+  DriveAuthError,
+  type DriveAuthOptions,
+  type DriveToken,
+  driveAuthOptions,
+  isTokenFresh,
+  loadDriveToken,
+  renewDriveToken,
+  saveDriveToken,
+  signInToDrive,
+  signOutOfDrive,
+} from "./drive/auth";
+export { createDriveBackend, DRIVE_FILE_NAME } from "./drive/backend";
 export { type SyncResult, syncOnce } from "./engine";
 export {
   type BackendFactory,

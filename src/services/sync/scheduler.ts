@@ -1,4 +1,4 @@
-import { SyncPayloadError } from "@/core";
+import { SyncVersionError } from "@/core";
 import { NOTES_KEY_PREFIX, TITLE_KEY_PREFIX } from "../notes";
 import { type SyncBackend, SyncSignedOutError } from "./backend";
 import { isSyncConfigKey, loadSyncConfig, type SyncConfig } from "./config";
@@ -49,7 +49,7 @@ function failed(before: SyncStatus, error: unknown, now: number): SyncStatus {
     error: error instanceof Error ? error.message : "Sync failed.",
   };
   if (error instanceof SyncSignedOutError) return { state: "signedOut", ...base };
-  if (error instanceof SyncPayloadError) return { state: "outdated", ...base };
+  if (error instanceof SyncVersionError) return { state: "outdated", ...base };
 
   const failures = (before.failures ?? 0) + 1;
   return { state: "error", ...base, failures, nextAttemptAt: now + backoffMs(failures) };

@@ -11,9 +11,14 @@
   (`fukidashi:sync:config`, `fukidashi:sync-status`). The scheduler registers its
   listeners synchronously and looks the backend up lazily through
   `loadSyncBackend(config)`, which still returns null — so the background entrypoint
-  stays idle. The Drive backend is designed in `docs/sync-design.md`.
-- `src/testing/` holds test helpers: fakes for `chrome.storage`, `chrome.alarms`, the
-  runtime's start-up events and the sync backend, and the Vitest setup file that fills in `Range.getBoundingClientRect` and
+  stays idle. `src/services/sync/drive/` holds the Google Drive backend: `auth.ts` (the
+  implicit OAuth flow through `chrome.identity.launchWebAuthFlow`, the stored token),
+  `api.ts` (the few Drive calls, retried once with a renewed token) and `backend.ts`
+  (one file in the app folder, with a version check standing in for the If-Match that
+  Drive API v3 lacks). The design is in `docs/sync-design.md`.
+- `src/testing/` holds test helpers: fakes for `chrome.storage`, `chrome.alarms`,
+  `chrome.identity`, the runtime's start-up events, the sync backend and Google Drive
+  (behind a `fetch` of its own), and the Vitest setup file that fills in `Range.getBoundingClientRect` and
   `Element.scrollIntoView`, which jsdom does not implement.
 - `src/assets/` stores assets imported from code; `public/` stores files copied as-is
   (`public/icon/*.png` is picked up by WXT as the extension icon).
@@ -79,6 +84,10 @@
 
 ## Security & Configuration Tips
 - Extension settings live in `wxt.config.ts`; keep permissions minimal.
+- `.env` (see `.env.example`) carries two build-time values: `WXT_GOOGLE_CLIENT_ID`, the
+  OAuth client the Drive sync signs in with, and `WXT_EXTENSION_KEY`, the store build's
+  public key, which gives a Chrome dev build the store build's extension id so the OAuth
+  redirect URI matches. Neither is a secret; a fork should use a client of its own.
 - Keep logic in `src/core/` pure and side-effect free for easier review.
 - `pnpm-workspace.yaml` lists the only dependencies allowed to run install scripts
   (`allowBuilds`); add an entry deliberately rather than approving everything.
