@@ -12,7 +12,9 @@ export default defineConfig({
     // workflow bumps — a copy here would ship stale.
     // activeTab covers the popup reading the current tab's URL and messaging
     // its content script; no broad host permission is needed for that.
-    permissions: ["storage", "activeTab"],
+    // identity signs in to Google Drive for the optional sync, and alarms
+    // is its timer for picking up what other devices pushed.
+    permissions: ["storage", "activeTab", "identity", "alarms"],
     // A dev build carrying the store build's public key gets the same
     // extension id, so the OAuth redirect registered for the store build
     // (`https://<id>.chromiumapp.org/`) is the one Google sends it back to.

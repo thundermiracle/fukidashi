@@ -1,4 +1,5 @@
 import { SyncVersionError } from "@/core";
+import { onSyncNow } from "../messages";
 import { NOTES_KEY_PREFIX, TITLE_KEY_PREFIX } from "../notes";
 import { type SyncBackend, SyncSignedOutError } from "./backend";
 import { isSyncConfigKey, loadSyncConfig, type SyncConfig } from "./config";
@@ -10,9 +11,7 @@ const PUSH_DELAY_MS = 5_000;
 
 /**
  * A backstop for what the watchers miss: another device pushing while this one
- * idles. It needs the "alarms" permission, which is left out of the manifest
- * until a backend exists — an unused permission is a store-review risk, and
- * nothing here touches the alarm while `loadSyncConfig` finds nothing.
+ * idles. Nothing here touches the alarm while `loadSyncConfig` finds nothing.
  */
 export const SYNC_ALARM = "fukidashi:sync";
 export const SYNC_PERIOD_MINUTES = 15;
@@ -107,8 +106,8 @@ function report(error: unknown): void {
 
 /**
  * Keeps this device in step with its backend: after its own edits settle, on
- * a timer for everyone else's, when the browser starts, and the moment the
- * user switches syncing on.
+ * a timer for everyone else's, when the browser starts, the moment the user
+ * switches syncing on, and whenever the settings page asks.
  *
  * Every listener is added before anything is awaited. In MV3 the worker is
  * woken for an event it has a listener for, and a listener added after an
@@ -199,6 +198,8 @@ export function startSync(createBackend: BackendFactory): SyncController {
   chrome.alarms.onAlarm.addListener(handleAlarm);
   chrome.runtime.onStartup.addListener(handleStartup);
   chrome.runtime.onInstalled.addListener(handleInstalled);
+  // The settings page asks after a sign-in, which is what ends `signedOut`.
+  const stopListeningForRequests = onSyncNow(() => kick(true));
 
   // The worker wakes for every event above, not only when the browser
   // starts, and a sync on each wake would double every debounced one.
@@ -221,6 +222,7 @@ export function startSync(createBackend: BackendFactory): SyncController {
       chrome.alarms.onAlarm.removeListener(handleAlarm);
       chrome.runtime.onStartup.removeListener(handleStartup);
       chrome.runtime.onInstalled.removeListener(handleInstalled);
+      stopListeningForRequests();
       chrome.alarms.clear(SYNC_ALARM);
     },
   };

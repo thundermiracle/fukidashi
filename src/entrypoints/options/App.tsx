@@ -18,6 +18,7 @@ import {
   serializeSyncPayload,
 } from "@/services/sync";
 import "./App.css";
+import { SyncSection } from "./SyncSection";
 
 type Outcome = { kind: "done" | "failed"; message: string };
 
@@ -126,6 +127,10 @@ function App() {
           </p>
         </div>
       </header>
+
+      <h2 className="fk-section">Sync</h2>
+
+      <SyncSection />
 
       <h2 className="fk-section">Backup</h2>
 

@@ -332,6 +332,29 @@
 /* --- footer ------------------------------------------------------------- */
 
 .fk-popup__footer {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   padding: 6px 14px 10px;
   border-top: 1px solid var(--fk-divider);
+}
+
+/* One line on syncing, only while this browser syncs; it opens the settings. */
+.fk-popup__sync {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--fk-text-muted);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fk-popup__sync:hover {
+  color: var(--fk-text);
+}
+
+.fk-popup__sync--attention {
+  color: #d4462e;
 }

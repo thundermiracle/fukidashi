@@ -2,6 +2,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Note } from "@/core";
+import { saveSyncConfig, saveSyncStatus } from "@/services/sync";
 import { createFakeChromeStorage } from "@/testing/fakeChromeStorage";
 import App from "./App";
 
@@ -230,5 +231,51 @@ describe("popup", () => {
 
     expect(openOptionsPage).toHaveBeenCalled();
     expect(window.close).toHaveBeenCalled();
+  });
+});
+
+describe("syncing, in the footer", () => {
+  function syncLine(): HTMLElement | null {
+    return container.querySelector(".fk-popup__sync");
+  }
+
+  it("shows nothing about it while this browser does not sync", async () => {
+    await renderPopup();
+
+    expect(syncLine()).toBeNull();
+  });
+
+  it("says when the notes last synced, and opens the settings from there", async () => {
+    await saveSyncConfig({ backend: "drive" });
+    await saveSyncStatus({ state: "idle", lastSyncedAt: Date.now() - 120_000 });
+    await renderPopup();
+
+    expect(syncLine()?.textContent).toBe("Synced 2m ago");
+    expect(syncLine()?.classList.contains("fk-popup__sync--attention")).toBe(false);
+    await click(syncLine());
+
+    expect(openOptionsPage).toHaveBeenCalled();
+  });
+
+  it("follows the background as it syncs", async () => {
+    await saveSyncConfig({ backend: "drive" });
+    await saveSyncStatus({ state: "idle", lastSyncedAt: 0 });
+    await renderPopup();
+    expect(syncLine()?.textContent).toBe("Not synced yet");
+
+    await act(async () => {
+      await saveSyncStatus({ state: "syncing", lastSyncedAt: 0 });
+    });
+
+    expect(syncLine()?.textContent).toBe("Syncing…");
+  });
+
+  it("asks for attention when the user is needed", async () => {
+    await saveSyncConfig({ backend: "drive" });
+    await saveSyncStatus({ state: "signedOut", lastSyncedAt: 0 });
+    await renderPopup();
+
+    expect(syncLine()?.textContent).toBe("Sign in to sync");
+    expect(syncLine()?.classList.contains("fk-popup__sync--attention")).toBe(true);
   });
 });
