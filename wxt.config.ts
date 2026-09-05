@@ -25,9 +25,12 @@ export default defineConfig({
     browser_specific_settings: {
       gecko: {
         id: "fukidashi@thundermiracle.com",
-        // Firefox requires this for new extensions; this extension collects nothing.
+        // Firefox requires this for new extensions. Nothing leaves the device
+        // until the user connects Google Drive; connecting asks for these two,
+        // which is what the notes contain (see connectDrive).
         data_collection_permissions: {
           required: ["none"],
+          optional: ["browsingActivity", "websiteContent"],
         },
       },
     },

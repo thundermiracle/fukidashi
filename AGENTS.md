@@ -83,11 +83,21 @@
 - Get a new one with `node scripts/get-chrome-refresh-token.mjs`, then update that one
   secret. Do not reach for `wxt submit init`: it asks Google for the out-of-band
   redirect, which Google stopped accepting in January 2023, and 6.1.1 still does.
+- The store builds bake in the OAuth client id the Drive sync signs in with, from the
+  `WXT_GOOGLE_CLIENT_ID` repository variable (Settings → Secrets and variables →
+  Actions → Variables). It is public, so a variable rather than a secret; without it
+  every released build's Connect button refuses.
+- What the store forms ask, and what to answer, is in `docs/store-disclosures.md`.
 
 ## Security & Configuration Tips
 - Extension settings live in `wxt.config.ts`; keep permissions minimal. `identity` and
   `alarms` are there for the Drive sync: the sign-in, and the timer that picks up what
   other devices pushed.
+- Firefox's `data_collection_permissions` declares `required: ["none"]` with
+  `browsingActivity` and `websiteContent` as optional; `connectDrive` asks for them on
+  Firefox before signing in, so nothing leaves the device until the user says so. After
+  touching the manifest, check a Firefox build with
+  `pnpm dlx web-ext lint --source-dir dist/firefox-mv2`.
 - `.env` (see `.env.example`) carries two build-time values: `WXT_GOOGLE_CLIENT_ID`, the
   OAuth client the Drive sync signs in with, and `WXT_EXTENSION_KEY`, the store build's
   public key, which gives a Chrome dev build the store build's extension id so the OAuth

@@ -8,7 +8,7 @@ import { SyncSignedOutError } from "../backend";
 import { loadSyncConfig, saveSyncConfig } from "../config";
 import { loadDriveToken, saveDriveToken } from "./auth";
 import { DRIVE_FILE_NAME } from "./backend";
-import { connectDrive, disconnectDrive } from "./connection";
+import { connectDrive, DataCollectionRefusedError, disconnectDrive } from "./connection";
 
 const HOUR = 3_600_000;
 
@@ -68,6 +68,80 @@ describe("connectDrive", () => {
     await connectDrive();
 
     expect(sent).toEqual([{ type: SYNC_NOW }]);
+  });
+
+  it("asks Firefox's permission for the data to leave, before anything else", async () => {
+    vi.stubEnv("FIREFOX", "true");
+    const request = vi.fn(async () => {
+      // Asked before the sign-in window opens, while it still counts as the user's click.
+      expect(identity.calls).toHaveLength(0);
+      return true;
+    });
+    vi.stubGlobal("chrome", {
+      ...storage.chrome,
+      ...identity.chrome,
+      ...runtime.chrome,
+      permissions: { request },
+    });
+    identity.answerWith((state) => `access_token=tok-1&expires_in=3600&state=${state}`);
+    drive.accept("tok-1", "me@example.com");
+
+    await connectDrive();
+
+    expect(request).toHaveBeenCalledWith({
+      data_collection: ["browsingActivity", "websiteContent"],
+    });
+    expect(identity.calls).toHaveLength(1);
+    await expect(loadSyncConfig()).resolves.toEqual({ backend: "drive" });
+  });
+
+  it("goes no further when Firefox's permission is refused", async () => {
+    vi.stubEnv("FIREFOX", "true");
+    vi.stubGlobal("chrome", {
+      ...storage.chrome,
+      ...identity.chrome,
+      ...runtime.chrome,
+      permissions: { request: async () => false },
+    });
+
+    await expect(connectDrive()).rejects.toThrow(DataCollectionRefusedError);
+
+    expect(identity.calls).toHaveLength(0);
+    await expect(loadSyncConfig()).resolves.toBeNull();
+  });
+
+  it("does not mind a Firefox that knows no such permission", async () => {
+    vi.stubEnv("FIREFOX", "true");
+    vi.stubGlobal("chrome", {
+      ...storage.chrome,
+      ...identity.chrome,
+      ...runtime.chrome,
+      permissions: {
+        request: async () => {
+          throw new TypeError("Type error for parameter permissions");
+        },
+      },
+    });
+    identity.answerWith((state) => `access_token=tok-1&expires_in=3600&state=${state}`);
+    drive.accept("tok-1", "me@example.com");
+
+    await expect(connectDrive()).resolves.toMatchObject({ email: "me@example.com" });
+  });
+
+  it("asks nothing of the kind elsewhere", async () => {
+    const request = vi.fn(async () => true);
+    vi.stubGlobal("chrome", {
+      ...storage.chrome,
+      ...identity.chrome,
+      ...runtime.chrome,
+      permissions: { request },
+    });
+    identity.answerWith((state) => `access_token=tok-1&expires_in=3600&state=${state}`);
+    drive.accept("tok-1", "me@example.com");
+
+    await connectDrive();
+
+    expect(request).not.toHaveBeenCalled();
   });
 
   it("changes nothing when the sign-in did not go through", async () => {
