@@ -1,13 +1,12 @@
 import type { SyncBackend } from "./backend";
+import type { SyncConfig } from "./config";
 
 /**
- * The backend this device syncs through, once one exists. Google Drive's app
- * folder and a sync-code relay are the two being weighed; both fit behind
- * `SyncBackend`, so choosing between them is a matter of returning one here.
- *
- * Until then there is nothing to sync with, and the background page stays
- * idle rather than doing half a job.
+ * The backend the config names, once one exists. Google Drive's app folder
+ * is the first to come (see `docs/sync-design.md`); a sync-code relay fits
+ * behind the same interface later. Until then there is nothing to sync with,
+ * and the scheduler treats null as "off".
  */
-export function loadSyncBackend(): SyncBackend | null {
+export async function loadSyncBackend(_config: SyncConfig): Promise<SyncBackend | null> {
   return null;
 }

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { type Note, SyncPayloadError } from "@/core";
+import { type Note, SyncPayloadError, TOMBSTONE_TTL_MS } from "@/core";
 import { createFakeChromeStorage } from "@/testing/fakeChromeStorage";
 import { deleteNote, loadNotes, notesKey, saveNote, savePageTitle, titleKey } from "../notes";
 import {
@@ -90,20 +90,58 @@ describe("applySyncPages", () => {
 
     await applySyncPages(
       pages.map((page) =>
-        page.url === PAGE ? { ...page, notes: [makeNote("a", 100, "edited")] } : page,
+        page.url === PAGE
+          ? { ...page, notes: [{ ...makeNote("a", 100, "edited"), updatedAt: 200 }] }
+          : page,
       ),
     );
 
     expect(written).toEqual([notesKey(PAGE)]);
   });
 
-  it("removes a title the merge dropped", async () => {
-    await saveNote(PAGE, makeNote("a", 100));
-    await savePageTitle(PAGE, "Docs");
+  it("keeps a page the given pages do not mention", async () => {
+    await saveNote(OTHER, makeNote("b", 100));
 
     await applySyncPages([{ url: PAGE, notes: [makeNote("a", 100)] }]);
 
+    await expect(loadNotes(OTHER)).resolves.toMatchObject([{ id: "b" }]);
+  });
+
+  it("keeps a note edited since the pages were read", async () => {
+    await saveNote(PAGE, makeNote("a", 100, "first"));
+    const pages = await collectSyncPages();
+    // The user edits the note after a sync read it and before it writes back.
+    await saveNote(PAGE, { ...makeNote("a", 100, "edited meanwhile"), updatedAt: 200 });
+    const listener = vi.fn();
+    storage.listeners.add(listener);
+
+    const changed = await applySyncPages(pages);
+
+    expect(changed).toBe(false);
+    expect(listener).not.toHaveBeenCalled();
+    await expect(loadNotes(PAGE)).resolves.toMatchObject([{ comment: "edited meanwhile" }]);
+  });
+
+  it("removes the title once the page's last note is a tombstone", async () => {
+    await saveNote(PAGE, makeNote("a", 100));
+    await savePageTitle(PAGE, "Docs");
+    const now = Date.now();
+    const deleted = { ...makeNote("a", 100), updatedAt: now, deletedAt: now };
+
+    await applySyncPages([{ url: PAGE, notes: [deleted] }]);
+
     expect(storage.data[titleKey(PAGE)]).toBeUndefined();
+    expect(storage.data[notesKey(PAGE)]).toMatchObject([{ id: "a", deletedAt: now }]);
+  });
+
+  it("drops a tombstone past its time, and the page with it", async () => {
+    await saveNote(PAGE, makeNote("a", 100));
+    await deleteNote(PAGE, "a");
+
+    const changed = await applySyncPages([], Date.now() + TOMBSTONE_TTL_MS);
+
+    expect(changed).toBe(true);
+    expect(storage.data[notesKey(PAGE)]).toBeUndefined();
   });
 });
 

@@ -6,4 +6,5 @@ export {
   type SyncPayload,
   SyncPayloadError,
 } from "./payload";
+export { purgeSyncPages } from "./purge";
 export type { SyncPage } from "./types";

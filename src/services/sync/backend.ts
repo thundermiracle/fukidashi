@@ -15,6 +15,17 @@ export class SyncConflictError extends Error {
 }
 
 /**
+ * Thrown when the backend cannot go on without the user signing in again —
+ * a token that could not be renewed silently, say. The scheduler then stops
+ * trying until the settings page brings the user back.
+ */
+export class SyncSignedOutError extends Error {
+  constructor(message = "Sign in again to keep syncing.") {
+    super(message);
+  }
+}
+
+/**
  * Somewhere a device's notes can be left for its other devices to find.
  * Deliberately small: a store that can read, write, and say whether it
  * changed underneath is enough for the engine, so Drive, a sync-code relay

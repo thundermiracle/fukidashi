@@ -1,4 +1,4 @@
-import { createSyncPayload, mergeSyncPages, type SyncPage } from "@/core";
+import { createSyncPayload, mergeSyncPages, purgeSyncPages, type SyncPage } from "@/core";
 import { type SyncBackend, SyncConflictError } from "./backend";
 import { applySyncPages, collectSyncPages } from "./storage";
 
@@ -22,9 +22,11 @@ function samePages(a: SyncPage[], b: SyncPage[]): boolean {
 
 /**
  * One round of syncing: read what the backend holds, merge it with what is
- * stored here, write back both ways. Nothing is written on either side when
- * the two already agree, which is what keeps a run from setting off the next
- * one through the storage watchers.
+ * stored here, write back both ways. Tombstones that have served their time
+ * are dropped on the way, so the payload does not carry every deletion ever
+ * made. Nothing is written on either side when the two already agree, which
+ * is what keeps a run from setting off the next one through the storage
+ * watchers.
  */
 export async function syncOnce(
   backend: SyncBackend,
@@ -32,12 +34,13 @@ export async function syncOnce(
 ): Promise<SyncResult> {
   for (let attempt = 1; ; attempt++) {
     const [remote, local] = await Promise.all([backend.pull(), collectSyncPages()]);
-    const merged = mergeSyncPages(local, remote?.payload.pages ?? []);
+    const remotePages = remote?.payload.pages ?? [];
+    const merged = purgeSyncPages(mergeSyncPages(local, remotePages), now);
 
-    const changedLocally = await applySyncPages(merged);
+    const changedLocally = await applySyncPages(merged, now);
     // Nothing stored on either side counts as agreeing, so a device with no
     // notes yet does not push an empty payload over what it just read.
-    if (samePages(remote?.payload.pages ?? [], merged)) {
+    if (samePages(remotePages, merged)) {
       return { changedLocally, pushed: false };
     }
 
