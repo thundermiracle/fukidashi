@@ -80,12 +80,18 @@ jobs:
           cache: "pnpm"
       - name: Install dependencies
         run: pnpm install
+      # The OAuth client the Drive sync signs in with is baked in at build
+      # time. It is a repository variable, not a secret: the id is public.
       - name: Zip Chrome extension
         if: ${{ needs.Version.outputs.release_chrome == '1' }}
         run: pnpm run zip
+        env:
+          WXT_GOOGLE_CLIENT_ID: ${{ vars.WXT_GOOGLE_CLIENT_ID }}
       - name: Zip Firefox extension
         if: ${{ needs.Version.outputs.release_firefox == '1' }}
         run: pnpm run zip:firefox
+        env:
+          WXT_GOOGLE_CLIENT_ID: ${{ vars.WXT_GOOGLE_CLIENT_ID }}
       - name: Submit to the Chrome Web Store
         if: ${{ needs.Version.outputs.release_chrome == '1' }}
         run: |

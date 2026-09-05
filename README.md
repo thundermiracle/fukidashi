@@ -22,6 +22,11 @@ memo — and find it again the next time you open the page.
   carrying notes under the site it belongs to. Pick a page to read its notes,
   or open it again in a tab; picking one of its notes opens the page and jumps
   straight to it.
+- **The same notes in every browser** — connect Google Drive on the settings
+  page and the notes sync between the browsers you connect: edits and
+  deletions carry across, and a note deleted anywhere stays deleted. The copy
+  lives in a hidden folder in your own Google Drive; there is no server of
+  ours in between.
 - **Take them elsewhere** — the settings page writes every note out to one
   file: JSON to keep as a backup and read back in later, or Markdown to drop
   into a notes app — the plain kind Notion reads, or the properties, callouts
@@ -46,6 +51,10 @@ pnpm run dev
 `wxt.config.ts`). To load a build by hand instead, run `pnpm run build` and add
 `dist/chrome-mv3` as an unpacked extension on `chrome://extensions`.
 
+Connecting Google Drive needs an OAuth client id in `.env` (see
+`.env.example`); without one the Connect button refuses. The store builds get
+theirs from the `WXT_GOOGLE_CLIENT_ID` repository variable.
+
 ## Commands
 
 | Command            | Description                                        |
@@ -65,7 +74,7 @@ src/
 ├── core/          Anchoring notes to page text, URLs, types, pure helpers
 ├── services/      Storage, highlight rendering, messaging
 ├── components/    React UI (toolbar, composer, bubble, list)
-├── entrypoints/   content script, popup
+├── entrypoints/   content script, popup, settings page, background
 ├── testing/       Test helpers (fake chrome.storage, jsdom setup)
 └── assets/        Assets imported from code
 public/icon/       Extension icons (picked up automatically by WXT)
@@ -84,8 +93,9 @@ context, so it can be found again after the page changes. See
   original page, where there is no translated text to jump to.
 - A note is lost when the page rewrites the text it was attached to; the popup
   still lists it, and the highlight returns if the text comes back.
-- Notes live in `chrome.storage.local`: they stay on this device and are not
-  synced between machines.
+- Sync needs a Google account; there is no other backend yet. A browser that
+  has not synced for more than 30 days can bring back a note deleted in the
+  meantime — deletions are kept for 30 days for it to catch up.
 - Deleting a note is immediate — there is no undo.
 - Built for Chrome; a Firefox build is produced but has not been tested there.
 
