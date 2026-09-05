@@ -60,6 +60,9 @@
 - Because a push only looks at one commit, the version bump has to be the commit that
   lands last — or merge with `--no-ff` so the merge commit carries it. Any other edit to
   `package.json` starts a release too.
+- The notes are GitHub's own list of the pull requests merged since the previous
+  release. Work pushed straight to `main` is not a pull request and never appears
+  there, so anything that should be named in the notes has to land through one.
 - A store that already holds the version fails the submission rather than skipping it, so
   retry a half-finished release with a manual run targeting the store that is behind
   (`chrome` or `firefox`), not by re-running the failed job.
