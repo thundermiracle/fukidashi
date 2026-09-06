@@ -6,6 +6,7 @@ import { createFakeChromeStorage } from "@/testing/fakeChromeStorage";
 import { createFakeDrive } from "@/testing/fakeDrive";
 import { SyncSignedOutError } from "../backend";
 import { loadSyncConfig, saveSyncConfig } from "../config";
+import { loadSyncKey, saveSyncKey } from "../key";
 import { loadDriveToken, saveDriveToken } from "./auth";
 import { DRIVE_FILE_NAME } from "./backend";
 import { connectDrive, DataCollectionRefusedError, disconnectDrive } from "./connection";
@@ -164,6 +165,15 @@ describe("disconnectDrive", () => {
     await expect(loadDriveToken()).resolves.toBeNull();
     expect(drive.content(DRIVE_FILE_NAME)).toBe("{}");
     expect(drive.requests.map((request) => request.method)).toEqual(["POST"]);
+  });
+
+  it("forgets the passphrase along with the token", async () => {
+    await connectedEarlier();
+    await saveSyncKey({ salt: "c2FsdA==", iterations: 1_000, key: "a2V5" });
+
+    await disconnectDrive({ deleteRemoteCopy: false });
+
+    await expect(loadSyncKey()).resolves.toBeNull();
   });
 
   it("deletes the copy in Drive when asked, before giving the token up", async () => {

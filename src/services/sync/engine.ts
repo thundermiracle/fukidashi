@@ -90,8 +90,9 @@ export async function syncOnce(
 
     const changedLocally = await applySyncPages(merged, now);
     // Nothing stored on either side counts as agreeing, so a device with no
-    // notes yet does not push an empty payload over what it just read.
-    if (samePages(remotePages, merged)) {
+    // notes yet does not push an empty payload over what it just read. A copy
+    // the backend wants written in another form is pushed all the same.
+    if (samePages(remotePages, merged) && !remote?.rewrite) {
       await saveSyncCheckpoint({
         version: remote?.version ?? null,
         digest: digestSyncPages(merged),

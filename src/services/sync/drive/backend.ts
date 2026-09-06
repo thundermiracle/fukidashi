@@ -52,6 +52,12 @@ async function revisionsBetween(
   return ids.slice(from + 1, to);
 }
 
+/** The copy in Drive as it stands, undecoded, or null when nothing has been pushed yet. */
+export async function readDriveCopy(api: DriveApi): Promise<string | null> {
+  const [file] = (await api.find(DRIVE_FILE_NAME)).sort(byVersionDesc);
+  return file ? api.read(file.id) : null;
+}
+
 /**
  * The notes kept as one file in Google Drive's app folder. Drive has no
  * If-Match, so `push` checks the version right before writing — the closest
@@ -81,7 +87,8 @@ export function createDriveBackend(api: DriveApi, codec: PayloadCodec = jsonCode
       // is still on the device that wrote it, and comes back with its next push.
       for (const duplicate of duplicates) await api.delete(duplicate.id);
 
-      return { payload: await codec.decode(await api.read(file.id)), version: tokenOf(file) };
+      const { payload, rewrite } = await codec.decode(await api.read(file.id));
+      return { payload, version: tokenOf(file), rewrite };
     },
 
     async push(payload, baseVersion) {
@@ -129,7 +136,7 @@ export function createDriveBackend(api: DriveApi, codec: PayloadCodec = jsonCode
         // in, and write the union in its place.
         for (const revisionId of missed) {
           const theirs = await codec.decode(await api.readRevision(id, revisionId));
-          pages = mergeSyncPages(pages, theirs.pages);
+          pages = mergeSyncPages(pages, theirs.payload.pages);
         }
         pages = purgeSyncPages(pages, payload.exportedAt);
         current = written;

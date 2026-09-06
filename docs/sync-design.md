@@ -20,7 +20,7 @@ Everything decided in #6 ("sync foundation") is taken as given here.
 
 `collectSyncPages` reads only those two prefixes, so a new key never becomes synced by accident.
 
-Out of scope for this stage: the encryption itself, the sync-code relay, several accounts at once, push notifications, delta sync, a device list.
+Out of scope for this stage: the sync-code relay, several accounts at once, push notifications, delta sync, a device list. (Encryption was first listed here too; it landed as Step 5.)
 
 ## 2. What the foundation already provides
 
@@ -47,7 +47,7 @@ Out of scope for this stage: the encryption itself, the sync-code relay, several
 | Account | a Google account | none, only a code to keep |
 | Privacy story | "sent only to a hidden folder in your own Drive; the developer runs no server" | "passes through the developer's server, unreadable thanks to end-to-end encryption" |
 | Optimistic locking | none (see 3.3) | a Durable Object gives compare-and-swap for free |
-| End-to-end encryption | optional, later | mandatory |
+| End-to-end encryption | optional (Step 5) | mandatory |
 | Browsers | Chrome, Brave, Firefox (`launchWebAuthFlow`) | the same |
 
 Drive ships first because it runs itself, and because the privacy policy can keep saying that the developer holds nothing. The relay is the second backend, for people who do not want Google, in Step 6. The two can coexist: two `SyncBackend` implementations, one engine, one scheduler, one status, one UI.
@@ -76,9 +76,11 @@ Drive ships first because it runs itself, and because the privacy policy can kee
 
 ### 3.4 Where encryption goes
 
-- `SyncBackend` passes `SyncPayload` objects around. The "payload to bytes" step is cut out as `PayloadCodec { encode(payload): Promise<string>; decode(text): Promise<SyncPayload> }` and injected into the backend. The default is JSON (`serializeSyncPayload` / `parseSyncPayload`).
-- End-to-end encryption is a codec swap: AES-256-GCM, the key from a passphrase through PBKDF2-SHA256 (600k rounds) for Drive, or from the sync code through HKDF for the relay. Engine, scheduler and UI stay untouched.
-- Optional and later for Drive (a forgotten passphrase means no more sync, which is a real UX cost). Mandatory for the relay.
+- `SyncBackend` passes `SyncPayload` objects around. The "payload to bytes" step is cut out as `PayloadCodec { encode(payload): Promise<string>; decode(text): Promise<{ payload, rewrite }> }` and injected into the backend. `decode` also says whether `encode` would have written the text differently; the backend passes that on as `RemoteSnapshot.rewrite`, and the engine then pushes even when the notes agree. That is how a copy changes form without waiting for an edit.
+- End-to-end encryption is a codec swap (Step 5, done): AES-256-GCM over the JSON payload, the key from a passphrase through PBKDF2-SHA256 (600k rounds) for Drive, or from the sync code through HKDF for the relay. The envelope `{ version, cipher, kdf: { name, iterations, salt }, iv, ciphertext }` stays JSON; base64 costs a third more bytes, so the 5 MiB cap bites at about 3.7 MiB of notes. Engine and scheduler know nothing of it beyond the `rewrite` flag and one more state, `wrongPassphrase`, which is held back like `signedOut` until the settings page asks for a run.
+- The key is derived on the settings page and kept per device (`fukidashi:sync:key`); the passphrase itself is not stored, and the codec reads the key on every call, so a passphrase set on the settings page reaches the backend the scheduler already holds. The salt travels in the envelope: setting a passphrase reads the copy first, and if it is encrypted, derives the key with that copy's salt and iterations and tries it — a wrong passphrase is refused on the spot. Otherwise a fresh salt is drawn, and the next round rewrites the plaintext copy encrypted. Two devices drawing fresh salts before either pushes is the one edge case; the second lands in `wrongPassphrase`, and re-entering the passphrase there adopts the salt.
+- The codec reads both forms while it has a key, so a device without the passphrase and one with it share a copy without breaking anything: whatever the plain device pushes is taken in and written back encrypted, and the plain device then shows `wrongPassphrase` — its own notes and the copy untouched — until it is given the passphrase. Encryption is therefore sticky: removing the passphrase on one device rewrites the copy as plaintext (one round with a codec that still opens it but writes plain), but any device that still has it encrypts the copy again on its next round. Disconnecting forgets the key along with the token.
+- Optional on Drive (a forgotten passphrase means no more sync, which is a real UX cost, and nobody can recover it). Mandatory for the relay.
 
 ### 3.5 The format contract
 
@@ -104,7 +106,9 @@ popup footer ◀── watchSyncStatus ── fukidashi:sync-status
 | `src/services/sync/drive/auth.ts` | Authorization URL, interactive and silent `launchWebAuthFlow`, token storage, expiry check, revoke | new |
 | `src/services/sync/drive/api.ts` | Thin Drive REST client (list / get / create / update / delete; 401 → renew → one retry) | new |
 | `src/services/sync/drive/backend.ts` | `createDriveBackend(codec)`: the `SyncBackend` implementation (3.3) | new |
-| `src/services/sync/codec.ts` | `PayloadCodec` and the JSON default | new |
+| `src/services/sync/codec.ts` | `PayloadCodec`, the envelope, key derivation, and the one codec — plain or encrypting by its keys | new |
+| `src/services/sync/key.ts` | the passphrase-derived key kept on the device | new |
+| `src/services/sync/drive/passphrase.ts` | setting and removing the passphrase, as the settings page does it | new |
 | `src/services/sync/config.ts` | `SyncConfig` (`{ backend: "drive" }` or absent): load / save / watch | new |
 | `src/services/sync/configured.ts` | `loadSyncBackend()` becomes async and builds the backend from the config | changed |
 | `src/services/sync/scheduler.ts` | Synchronous listener registration, config watching, lazy backend resolution, alarm guard, backoff, skipping while `signedOut`, `sync-now` | changed |
@@ -226,10 +230,10 @@ Dependencies: 0 → 1 → 2 → 3. Steps 4 and 5 follow 2 and are independent of
 - Scope: skip the read when nothing changed (5.6), conflict repair through `revisions` (3.3), optionally blanking tombstones.
 - Acceptance: an idle alarm sync finishes with one list request / a test that reproduces a simultaneous push ends with both sides' changes in one push.
 
-### Step 5: the encryption codec (optional on Drive)
+### Step 5: the encryption codec (optional on Drive) — done
 
-- Scope: the AES-256-GCM codec, a passphrase setting on the options page, key storage (`chrome.storage.local`, never synced). Migration from an existing plaintext file: if it reads as plaintext, encrypt and write it back.
-- Acceptance: an encrypted device and a plaintext device side by side break nothing, and "wrong passphrase" shows as a state.
+- Scope: the AES-256-GCM codec, a passphrase setting on the options page (set, unlock, remove), key storage (`chrome.storage.local`, never synced), the `wrongPassphrase` state. Migration from an existing plaintext file: it reads as plaintext, and is written back encrypted on the next round through the `rewrite` flag (3.4).
+- Acceptance: an encrypted device and a plaintext device side by side break nothing (`engine.spec.ts`, "a browser with a passphrase beside one without"), and "wrong passphrase" shows as a state (`scheduler.spec.ts`).
 
 ### Step 6: the sync-code relay (second backend)
 

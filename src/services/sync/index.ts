@@ -4,7 +4,24 @@ export {
   SyncConflictError,
   SyncSignedOutError,
 } from "./backend";
-export { jsonCodec, type PayloadCodec } from "./codec";
+export {
+  type CodecKeys,
+  createSyncCodec,
+  type DecodedPayload,
+  decryptEnvelope,
+  deriveSyncKey,
+  ENVELOPE_VERSION,
+  type Envelope,
+  encryptPayload,
+  isEnvelope,
+  jsonCodec,
+  type PayloadCodec,
+  PBKDF2_ITERATIONS,
+  randomSalt,
+  readEnvelope,
+  readEnvelopeIfAny,
+  SyncPassphraseError,
+} from "./codec";
 export {
   isSyncConfigKey,
   loadSyncConfig,
@@ -13,7 +30,7 @@ export {
   saveSyncConfig,
   watchSyncConfig,
 } from "./config";
-export { loadSyncBackend } from "./configured";
+export { loadSyncBackend, storedKeyCodec } from "./configured";
 export {
   createDriveApi,
   type DriveApi,
@@ -37,9 +54,18 @@ export {
   signInToDrive,
   signOutOfDrive,
 } from "./drive/auth";
-export { createDriveBackend, DRIVE_FILE_NAME } from "./drive/backend";
+export { createDriveBackend, DRIVE_FILE_NAME, readDriveCopy } from "./drive/backend";
 export { connectDrive, disconnectDrive } from "./drive/connection";
+export { removeSyncPassphrase, setSyncPassphrase } from "./drive/passphrase";
 export { type SyncResult, syncOnce } from "./engine";
+export {
+  isSyncKeyKey,
+  loadSyncKey,
+  SYNC_KEY_KEY,
+  type SyncKey,
+  saveSyncKey,
+  watchSyncKey,
+} from "./key";
 export {
   type BackendFactory,
   SYNC_ALARM,
