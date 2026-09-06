@@ -96,9 +96,16 @@ export async function deleteNote(url: string, id: string): Promise<void> {
   if (index === -1) return;
 
   // The note stays behind as a tombstone so a sync cannot bring it back from
-  // another device's older copy.
+  // another device's older copy. Only its id and its times still matter, so
+  // what the user wrote and quoted does not linger on any device or remote.
   const now = Date.now();
-  notes[index] = { ...notes[index], updatedAt: now, deletedAt: now };
+  notes[index] = {
+    ...notes[index],
+    comment: "",
+    anchor: { exact: "", prefix: "", suffix: "", start: 0 },
+    updatedAt: now,
+    deletedAt: now,
+  };
   await writeNotes(key, notes);
 }
 

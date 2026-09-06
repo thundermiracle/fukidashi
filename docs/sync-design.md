@@ -72,7 +72,7 @@ Drive ships first because it runs itself, and because the privacy policy can kee
   2. Otherwise `files.get(fields=version)` and compare. A mismatch throws `SyncConflictError` (the engine pulls, merges and pushes again); a match goes on to `files.update`.
 - A few hundred milliseconds remain between the check and the write. Two devices landing in it together means the later write wins. But the earlier device still holds everything locally, so its next sync (the alarm within 15 minutes, or its next edit) pulls, merges and pushes it back. Data is lost for good only if that device never syncs again, and only after both devices pushed unsent changes in the same second.
 - The fake backend keeps its strict optimistic locking (stricter than the real thing). The engine runs the same path under both.
-- Hardening (Step 4): read `headRevisionId` from the `files.update` response and `revisions.list`; if another device's revision sits between the base and the new head, fetch it with `revisions.get?alt=media`, merge and push again. This stays inside the backend and closes the window.
+- Hardening (Step 4, done): read `headRevisionId` from the `files.update` response and `revisions.list`; if another device's revision sits between the base and the new head, fetch it with `revisions.get?alt=media`, merge, and write the union in place. The push then ends in `SyncConflictError` on purpose: the engine records a checkpoint (the remote's version and the pages' digest) after every round and skips the read while the remote is still at that version, so the remote must never hold anything the engine has not read — the conflict makes it read the union back before it records anything.
 
 ### 3.4 Where encryption goes
 
@@ -187,7 +187,7 @@ Popup: one line next to the `ToggleSwitch` in the footer ("Synced 2m ago", "Sign
 | 500 notes | about 200 KB | about 20 MB/day |
 | 2,000 notes | about 800 KB | about 80 MB/day |
 
-- Step 4 adds "skip the read when the `version` / `md5Checksum` in the find result is unchanged", which brings idle syncs down to one list request (the last values kept in `chrome.storage.session`, or in memory on Firefox MV2).
+- Step 4 (done) brings idle syncs down to one list request: after each round the engine records the remote's version token and a digest of the pages in `fukidashi:sync:checkpoint`; a round that finds the remote still at that version skips the read, and pushes without reading when only this device changed.
 - The Drive API quota (12,000 requests per minute per user) is nowhere near. `appDataFolder` counts against the user's own Drive storage.
 
 ## 6. Steps (one issue each)

@@ -89,6 +89,9 @@ describe("deleteNote", () => {
     expect(tombstone.id).toBe("a");
     expect(tombstone.deletedAt).toBeGreaterThan(0);
     expect(tombstone.updatedAt).toBe(tombstone.deletedAt);
+    // What was written and quoted goes with the note; only the id and the times stay.
+    expect(tombstone.comment).toBe("");
+    expect(tombstone.anchor).toEqual({ exact: "", prefix: "", suffix: "", start: 0 });
   });
 
   it("drops the title once the last live note is gone, but keeps the entry", async () => {

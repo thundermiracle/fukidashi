@@ -38,13 +38,20 @@ function start(createBackend: BackendFactory = async () => backend): SyncControl
   return controller;
 }
 
-/** Makes the backend fail every time, and counts the attempts. */
+/** How often the backend was asked anything: a full read, or only its version. */
+function rounds(): number {
+  return backend.pulls() + backend.peeks();
+}
+
+/** Makes the backend fail every time it is asked anything, and counts the attempts. */
 function failWith(error: () => Error): () => number {
   let attempts = 0;
-  backend.pull = async () => {
+  const fail = async () => {
     attempts += 1;
     throw error();
   };
+  backend.pull = fail;
+  backend.peek = fail;
   return () => attempts;
 }
 
@@ -89,7 +96,7 @@ describe("startSync", () => {
     // The edit is heard while the backend is still pending …
     await saveNote(PAGE, makeNote("a", 100));
     await settle();
-    expect(backend.pulls()).toBe(0);
+    expect(rounds()).toBe(0);
 
     // … and leaves as soon as the backend is there.
     release(backend);
@@ -116,7 +123,7 @@ describe("startSync", () => {
     start();
     await settle();
 
-    expect(backend.pulls()).toBe(0);
+    expect(rounds()).toBe(0);
     expect(alarms.alarms.has(SYNC_ALARM)).toBe(true);
   });
 
@@ -128,7 +135,7 @@ describe("startSync", () => {
     runtime.startup();
     await settle();
 
-    expect(backend.pulls()).toBe(1);
+    expect(rounds()).toBe(1);
   });
 
   it("leaves a ticking alarm alone when the worker starts again", async () => {
@@ -159,23 +166,23 @@ describe("startSync", () => {
   it("syncs when the alarm goes off", async () => {
     start();
     await settle();
-    const before = backend.pulls();
+    const before = rounds();
 
     alarms.fire(SYNC_ALARM);
     await settle();
 
-    expect(backend.pulls()).toBe(before + 1);
+    expect(rounds()).toBe(before + 1);
   });
 
   it("ignores an alarm meant for something else", async () => {
     start();
     await settle();
-    const before = backend.pulls();
+    const before = rounds();
 
     alarms.fire("other");
     await settle();
 
-    expect(backend.pulls()).toBe(before);
+    expect(rounds()).toBe(before);
   });
 
   it("does not set off another sync by writing what it merged", async () => {
@@ -183,11 +190,11 @@ describe("startSync", () => {
 
     start();
     await settle();
-    const after = backend.pulls();
+    const after = rounds();
 
     await settle();
 
-    expect(backend.pulls()).toBe(after);
+    expect(rounds()).toBe(after);
   });
 
   it("keeps the last success on record when a sync fails", async () => {
@@ -298,12 +305,12 @@ describe("startSync", () => {
     await saveSyncConfig(null);
     start();
     await settle();
-    expect(backend.pulls()).toBe(0);
+    expect(rounds()).toBe(0);
     expect(alarms.alarms.has(SYNC_ALARM)).toBe(false);
 
     await saveSyncConfig({ backend: "drive" });
     await settle();
-    expect(backend.pulls()).toBe(1);
+    expect(rounds()).toBe(1);
     expect(alarms.alarms.has(SYNC_ALARM)).toBe(true);
 
     await saveSyncConfig(null);
@@ -312,17 +319,17 @@ describe("startSync", () => {
     expect(await loadSyncStatus()).toEqual({ state: "off", lastSyncedAt: 0 });
     await saveNote(PAGE, makeNote("a", 100));
     await settle();
-    expect(backend.pulls()).toBe(1);
+    expect(rounds()).toBe(1);
 
     await saveSyncConfig({ backend: "drive" });
     await settle();
-    expect(backend.pulls()).toBe(2);
+    expect(rounds()).toBe(2);
   });
 
   it("stops watching once it is told to", async () => {
     const controller = start();
     await settle();
-    const before = backend.pulls();
+    const before = rounds();
 
     controller.stop();
     await saveNote(PAGE, makeNote("a", 100));
@@ -330,7 +337,7 @@ describe("startSync", () => {
     runtime.send({ type: SYNC_NOW });
     await settle();
 
-    expect(backend.pulls()).toBe(before);
+    expect(rounds()).toBe(before);
     expect(alarms.alarms.has(SYNC_ALARM)).toBe(false);
   });
 });

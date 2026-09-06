@@ -45,6 +45,24 @@ describe("createDriveApi", () => {
     await expect(api.find("notes.json")).resolves.toEqual([]);
   });
 
+  it("lists a file's revisions oldest first, and reads any of them back", async () => {
+    drive.accept("tok");
+    const api = createApi("tok");
+    const created = await api.create("notes.json", "first");
+    const updated = await api.update(created.id, "second");
+
+    const revisions = await api.listRevisions(created.id);
+
+    expect(revisions.map((revision) => revision.id)).toEqual([
+      created.headRevisionId,
+      updated.headRevisionId,
+    ]);
+    await expect(api.readRevision(created.id, revisions[0].id)).resolves.toBe("first");
+    await expect(api.get(created.id)).resolves.toMatchObject({
+      headRevisionId: updated.headRevisionId,
+    });
+  });
+
   it("looks in the app folder alone", async () => {
     drive.accept("tok");
 

@@ -2,6 +2,7 @@ import { SyncVersionError } from "@/core";
 import { onSyncNow } from "../messages";
 import { NOTES_KEY_PREFIX, TITLE_KEY_PREFIX } from "../notes";
 import { type SyncBackend, SyncSignedOutError } from "./backend";
+import { clearSyncCheckpoint } from "./checkpoint";
 import { isSyncConfigKey, loadSyncConfig, type SyncConfig } from "./config";
 import { syncOnce } from "./engine";
 import { DEFAULT_SYNC_STATUS, loadSyncStatus, type SyncStatus, saveSyncStatus } from "./status";
@@ -156,6 +157,8 @@ export function startSync(createBackend: BackendFactory): SyncController {
   };
 
   const configChanged = async (): Promise<void> => {
+    // Whatever the last sync recorded was about another connection.
+    await clearSyncCheckpoint();
     if (await resolve()) {
       await ensureAlarm();
       kick(true);

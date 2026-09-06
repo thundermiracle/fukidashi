@@ -29,7 +29,8 @@ Sync is off until you connect Google Drive on the settings page. Once you do:
   setting, plus a marker for each deleted note so that a deletion carries
   across — to a hidden application folder in your own Google Drive
   (`appDataFolder`). Only Fukidashi can read that folder; it does not appear
-  among your Drive files. It counts towards your Drive storage.
+  among your Drive files. It counts towards your Drive storage, as do the
+  recent versions of it that Drive keeps for a while after each update.
 - The copy is updated a few seconds after you edit a note, and checked every
   15 minutes for what your other browsers wrote.
 - The data travels directly between your browser and Google. Google's own

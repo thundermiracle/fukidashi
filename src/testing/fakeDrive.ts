@@ -1,10 +1,17 @@
 import { MAX_UPLOAD_BYTES } from "@/services/sync/drive/api";
 
+interface StoredRevision {
+  id: string;
+  content: string;
+}
+
 interface StoredFile {
   id: string;
   name: string;
   version: number;
   content: string;
+  /** Every content the file has held, oldest first, the way Drive keeps them. */
+  revisions: StoredRevision[];
 }
 
 function byteLength(text: string): number {
@@ -31,6 +38,11 @@ export function createFakeDrive() {
   const tokens = new Map<string, string>();
   const requests: { method: string; url: string }[] = [];
   let nextId = 1;
+  let nextRevision = 1;
+  const revise = (file: StoredFile, content: string) => {
+    file.content = content;
+    file.revisions.push({ id: `rev-${nextRevision++}`, content });
+  };
 
   const json = (status: number, body: unknown) =>
     new Response(JSON.stringify(body), {
@@ -43,9 +55,11 @@ export function createFakeDrive() {
     id: file.id,
     version: String(file.version),
     size: String(byteLength(file.content)),
+    headRevisionId: file.revisions[file.revisions.length - 1].id,
   });
   const add = (name: string, content: string): StoredFile => {
-    const file = { id: `file-${nextId++}`, name, version: 1, content };
+    const file: StoredFile = { id: `file-${nextId++}`, name, version: 1, content, revisions: [] };
+    revise(file, content);
     files.set(file.id, file);
     return file;
   };
@@ -74,9 +88,23 @@ export function createFakeDrive() {
       const file = files.get(upload[1]);
       if (!file) return failure(404, "File not found");
       if (byteLength(body) > MAX_UPLOAD_BYTES) return failure(413, "Request Entity Too Large");
-      file.content = body;
+      revise(file, body);
       file.version += 1;
       return json(200, describe(file));
+    }
+
+    const revisions = url.pathname.match(/^\/drive\/v3\/files\/([^/]+)\/revisions$/);
+    if (revisions && method === "GET") {
+      const file = files.get(revisions[1]);
+      if (!file) return failure(404, "File not found");
+      return json(200, { revisions: file.revisions.map((revision) => ({ id: revision.id })) });
+    }
+
+    const revision = url.pathname.match(/^\/drive\/v3\/files\/([^/]+)\/revisions\/([^/]+)$/);
+    if (revision && method === "GET") {
+      const found = files.get(revision[1])?.revisions.find((known) => known.id === revision[2]);
+      if (!found) return failure(404, "Revision not found");
+      return new Response(found.content, { status: 200 });
     }
 
     if (url.pathname === "/drive/v3/files" && method === "GET") {
