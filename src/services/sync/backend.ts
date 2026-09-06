@@ -5,6 +5,12 @@ export interface RemoteSnapshot {
   payload: SyncPayload;
   /** Opaque to the engine — an ETag, a revision id, whatever the store uses. */
   version: string;
+  /**
+   * Set when the copy is worth writing back even if the notes agree: it is
+   * not in the form this device writes — plaintext once a passphrase is set
+   * here, say — and the codec would write it differently.
+   */
+  rewrite?: boolean;
 }
 
 /** Thrown by `push` when the remote moved on since `baseVersion` was read. */

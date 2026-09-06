@@ -3,6 +3,7 @@ import { onSyncNow } from "../messages";
 import { NOTES_KEY_PREFIX, TITLE_KEY_PREFIX } from "../notes";
 import { type SyncBackend, SyncSignedOutError } from "./backend";
 import { clearSyncCheckpoint } from "./checkpoint";
+import { SyncPassphraseError } from "./codec";
 import { isSyncConfigKey, loadSyncConfig, type SyncConfig } from "./config";
 import { syncOnce } from "./engine";
 import { DEFAULT_SYNC_STATUS, loadSyncStatus, type SyncStatus, saveSyncStatus } from "./status";
@@ -49,18 +50,26 @@ function failed(before: SyncStatus, error: unknown, now: number): SyncStatus {
     error: error instanceof Error ? error.message : "Sync failed.",
   };
   if (error instanceof SyncSignedOutError) return { state: "signedOut", ...base };
+  if (error instanceof SyncPassphraseError) return { state: "wrongPassphrase", ...base };
   if (error instanceof SyncVersionError) return { state: "outdated", ...base };
 
   const failures = (before.failures ?? 0) + 1;
   return { state: "error", ...base, failures, nextAttemptAt: now + backoffMs(failures) };
 }
 
+/** The states only the user can end, by signing in, entering the passphrase or updating. */
+const WAITING_FOR_USER: readonly SyncStatus["state"][] = [
+  "signedOut",
+  "wrongPassphrase",
+  "outdated",
+];
+
 /**
- * Whether the backend should be left alone for now: the user has to sign in
- * or update first, or a failure is being backed off.
+ * Whether the backend should be left alone for now: the user has to act
+ * first, or a failure is being backed off.
  */
 function isHeldBack(status: SyncStatus, now: number): boolean {
-  if (status.state === "signedOut" || status.state === "outdated") return true;
+  if (WAITING_FOR_USER.includes(status.state)) return true;
   return status.nextAttemptAt !== undefined && now < status.nextAttemptAt;
 }
 
@@ -201,7 +210,8 @@ export function startSync(createBackend: BackendFactory): SyncController {
   chrome.alarms.onAlarm.addListener(handleAlarm);
   chrome.runtime.onStartup.addListener(handleStartup);
   chrome.runtime.onInstalled.addListener(handleInstalled);
-  // The settings page asks after a sign-in, which is what ends `signedOut`.
+  // The settings page asks after a sign-in or a passphrase, which is what
+  // ends `signedOut` and `wrongPassphrase`.
   const stopListeningForRequests = onSyncNow(() => kick(true));
 
   // The worker wakes for every event above, not only when the browser

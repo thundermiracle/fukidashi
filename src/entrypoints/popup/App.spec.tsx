@@ -270,6 +270,15 @@ describe("syncing, in the footer", () => {
     expect(syncLine()?.textContent).toBe("Syncing…");
   });
 
+  it("asks for the passphrase when the copy in Drive needs one", async () => {
+    await saveSyncConfig({ backend: "drive" });
+    await saveSyncStatus({ state: "wrongPassphrase", lastSyncedAt: 0 });
+    await renderPopup();
+
+    expect(syncLine()?.textContent).toBe("Enter passphrase to sync");
+    expect(syncLine()?.classList.contains("fk-popup__sync--attention")).toBe(true);
+  });
+
   it("asks for attention when the user is needed", async () => {
     await saveSyncConfig({ backend: "drive" });
     await saveSyncStatus({ state: "signedOut", lastSyncedAt: 0 });

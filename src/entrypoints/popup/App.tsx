@@ -40,6 +40,8 @@ function describeSync(status: SyncStatus): { text: string; needsAttention: boole
       return { text: "Syncing…", needsAttention: false };
     case "signedOut":
       return { text: "Sign in to sync", needsAttention: true };
+    case "wrongPassphrase":
+      return { text: "Enter passphrase to sync", needsAttention: true };
     case "error":
       return { text: "Sync failed", needsAttention: true };
     case "outdated":

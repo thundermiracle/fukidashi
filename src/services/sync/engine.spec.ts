@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createSyncPayload,
   mergeSyncPages,
@@ -12,9 +12,18 @@ import { createFakeDrive } from "@/testing/fakeDrive";
 import { createFakeSyncBackend } from "@/testing/fakeSyncBackend";
 import { deleteNote, loadNotes, notesKey, saveNote, savePageTitle } from "../notes";
 import { type SyncBackend, SyncConflictError, SyncSignedOutError } from "./backend";
+import {
+  createSyncCodec,
+  deriveSyncKey,
+  type PayloadCodec,
+  randomSalt,
+  readEnvelopeIfAny,
+  SyncPassphraseError,
+} from "./codec";
 import { createDriveApi } from "./drive/api";
 import { createDriveBackend, DRIVE_FILE_NAME } from "./drive/backend";
 import { syncOnce } from "./engine";
+import type { SyncKey } from "./key";
 import { collectSyncPages } from "./storage";
 
 const PAGE = "https://example.com/docs";
@@ -44,8 +53,13 @@ function fakeBackendRemote(): Remote {
   return { backendFor: () => backend, pages: () => backend.snapshot()?.payload.pages };
 }
 
-/** Google Drive as the fake stands in for it, with a client per device. */
-function driveRemote(): Remote & { drive: ReturnType<typeof createFakeDrive> } {
+/**
+ * Google Drive as the fake stands in for it, with a client per device — and
+ * a codec per device where a test names one, for a browser with a passphrase.
+ */
+function driveRemote(
+  codecs: Partial<Record<string, PayloadCodec>> = {},
+): Remote & { drive: ReturnType<typeof createFakeDrive> } {
   const drive = createFakeDrive();
   const backends = new Map<string, SyncBackend>();
   return {
@@ -60,7 +74,7 @@ function driveRemote(): Remote & { drive: ReturnType<typeof createFakeDrive> } {
             throw new SyncSignedOutError();
           },
         };
-        backend = createDriveBackend(createDriveApi(bearer, drive.fetch));
+        backend = createDriveBackend(createDriveApi(bearer, drive.fetch), codecs[device]);
         backends.set(device, backend);
       }
       return backend;
@@ -383,5 +397,90 @@ describe("an idle round on Google Drive", () => {
     expect(added).toHaveLength(1);
     expect(added[0]).toMatchObject({ method: "GET" });
     expect(new URL(added[0].url).pathname).toBe("/drive/v3/files");
+  });
+});
+
+describe("a browser with a passphrase beside one without, through Google Drive", () => {
+  /** Real enough to exercise the derivation, cheap enough for a test. */
+  const ITERATIONS = 1_000;
+  let key: SyncKey;
+
+  beforeAll(async () => {
+    key = await deriveSyncKey("correct horse", randomSalt(), ITERATIONS);
+  });
+
+  /** A codec that follows a key the test can hand over later, as the settings page would. */
+  function keyed(initial: SyncKey | null) {
+    let current = initial;
+    return {
+      codec: createSyncCodec({ read: async () => current, write: async () => current }),
+      give: (given: SyncKey) => {
+        current = given;
+      },
+    };
+  }
+
+  function copyOn(remote: ReturnType<typeof driveRemote>): string {
+    return remote.drive.content(DRIVE_FILE_NAME) ?? "";
+  }
+
+  it("takes in what the plain browser pushed, and writes the copy back encrypted", async () => {
+    const remote = driveRemote({ desktop: keyed(key).codec });
+    const { on, sync } = createDevices(remote);
+    await on("laptop", () => saveNote(PAGE, makeNote("a", 100, "from the laptop")));
+    await sync("laptop");
+    await on("desktop", () => saveNote(OTHER, makeNote("b", 100, "from the desktop")));
+
+    await sync("desktop");
+
+    const written = copyOn(remote);
+    expect(readEnvelopeIfAny(written)).not.toBeNull();
+    expect(written).not.toContain("from the laptop");
+    await expect(on("desktop", () => loadNotes(PAGE))).resolves.toMatchObject([
+      { comment: "from the laptop" },
+    ]);
+
+    // The laptop is told the copy needs a passphrase; its notes and the copy
+    // stay as they are.
+    await expect(sync("laptop")).rejects.toThrow(SyncPassphraseError);
+    expect(copyOn(remote)).toBe(written);
+    await expect(on("laptop", () => loadNotes(PAGE))).resolves.toMatchObject([
+      { comment: "from the laptop" },
+    ]);
+    await expect(on("laptop", () => loadNotes(OTHER))).resolves.toEqual([]);
+  });
+
+  it("writes a plaintext copy back encrypted even with nothing of its own to add, then idles", async () => {
+    const remote = driveRemote({ desktop: keyed(key).codec });
+    const { on, sync } = createDevices(remote);
+    await on("laptop", () => saveNote(PAGE, makeNote("a", 100)));
+    await sync("laptop");
+
+    await expect(sync("desktop")).resolves.toEqual({ changedLocally: true, pushed: true });
+
+    expect(readEnvelopeIfAny(copyOn(remote))).not.toBeNull();
+    const before = remote.drive.requests.length;
+    await expect(sync("desktop")).resolves.toEqual({ changedLocally: false, pushed: false });
+    expect(remote.drive.requests.slice(before)).toHaveLength(1);
+  });
+
+  it("lets the plain browser in once it is given the passphrase", async () => {
+    const laptop = keyed(null);
+    const remote = driveRemote({ desktop: keyed(key).codec, laptop: laptop.codec });
+    const { on, sync } = createDevices(remote);
+    await on("desktop", () => saveNote(PAGE, makeNote("a", 100, "from the desktop")));
+    await sync("desktop");
+    await on("laptop", () => saveNote(OTHER, makeNote("b", 100, "from the laptop")));
+    await expect(sync("laptop")).rejects.toThrow(SyncPassphraseError);
+
+    laptop.give(key);
+    await sync("laptop");
+    await sync("desktop");
+
+    const desktop = await on("desktop", collectSyncPages);
+    const laptopPages = await on("laptop", collectSyncPages);
+    expect(desktop).toEqual(laptopPages);
+    expect(desktop.map((page) => page.url)).toEqual([PAGE, OTHER]);
+    expect(readEnvelopeIfAny(copyOn(remote))).not.toBeNull();
   });
 });

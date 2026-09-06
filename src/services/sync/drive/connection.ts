@@ -1,5 +1,6 @@
 import { requestSyncNow } from "../../messages";
 import { saveSyncConfig } from "../config";
+import { saveSyncKey } from "../key";
 import { createDriveApi } from "./api";
 import {
   createDriveBearerSource,
@@ -67,8 +68,9 @@ async function deleteRemoteCopy(): Promise<void> {
 }
 
 /**
- * Switches syncing off and forgets the token; the notes on this device stay
- * as they are. Deleting the copy in Drive, when asked for, comes in between:
+ * Switches syncing off and forgets the token, and the passphrase with it;
+ * the notes on this device stay as they are. Deleting the copy in Drive,
+ * when asked for, comes in between:
  * after the config is gone, so no new run starts and writes the file back,
  * and before the token is revoked, which the delete still needs. If the
  * delete fails, nothing is given up — syncing is switched back on and the
@@ -85,4 +87,5 @@ export async function disconnectDrive(options: { deleteRemoteCopy: boolean }): P
     }
   }
   await signOutOfDrive();
+  await saveSyncKey(null);
 }

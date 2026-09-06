@@ -8,6 +8,13 @@ import {
 } from "@/core";
 import { createFakeDrive } from "@/testing/fakeDrive";
 import { type SyncBackend, SyncConflictError, SyncSignedOutError } from "../backend";
+import {
+  createSyncCodec,
+  deriveSyncKey,
+  randomSalt,
+  readEnvelopeIfAny,
+  SyncPassphraseError,
+} from "../codec";
 import { createDriveApi, type DriveApi } from "./api";
 import { createDriveBackend, DRIVE_FILE_NAME } from "./backend";
 
@@ -75,7 +82,11 @@ describe("createDriveBackend", () => {
 
     await expect(backend.push(payload("one"), null)).resolves.toBe("file-1:1");
 
-    await expect(backend.pull()).resolves.toEqual({ payload: payload("one"), version: "file-1:1" });
+    await expect(backend.pull()).resolves.toEqual({
+      payload: payload("one"),
+      version: "file-1:1",
+      rewrite: false,
+    });
     expect(drive.content(DRIVE_FILE_NAME)).toBe(JSON.stringify(payload("one")));
   });
 
@@ -162,6 +173,26 @@ describe("createDriveBackend", () => {
     expect(read?.payload.pages[0].notes.map((note) => note.id)).toEqual(["a", "b", "c"]);
   });
 
+  it("reads a plaintext copy with a passphrase set, asks for it back, and writes it encrypted", async () => {
+    const key = await deriveSyncKey("correct horse", randomSalt(), 1_000);
+    const codec = createSyncCodec({ read: async () => key, write: async () => key });
+    const backend = createDriveBackend(createApi(), codec);
+    drive.plant(DRIVE_FILE_NAME, JSON.stringify(payload("plain")));
+
+    await expect(backend.pull()).resolves.toEqual({
+      payload: payload("plain"),
+      version: "file-1:1",
+      rewrite: true,
+    });
+    await backend.push(payload("plain"), "file-1:1");
+
+    const written = drive.content(DRIVE_FILE_NAME) ?? "";
+    expect(readEnvelopeIfAny(written)).not.toBeNull();
+    expect(written).not.toContain("plain");
+    // A device without the passphrase is told so, rather than handed a broken copy.
+    await expect(createDriveBackend(createApi()).pull()).rejects.toThrow(SyncPassphraseError);
+  });
+
   it("keeps one file when two devices created it at once, the same one everywhere", async () => {
     drive.plant(DRIVE_FILE_NAME, JSON.stringify(payload("first")));
     drive.plant(DRIVE_FILE_NAME, JSON.stringify(payload("second")));
@@ -169,7 +200,7 @@ describe("createDriveBackend", () => {
     const desktop = await createDriveBackend(createApi()).pull();
     const laptop = await createDriveBackend(createApi()).pull();
 
-    expect(desktop).toEqual({ payload: payload("first"), version: "file-1:1" });
+    expect(desktop).toEqual({ payload: payload("first"), version: "file-1:1", rewrite: false });
     expect(laptop).toEqual(desktop);
     expect(drive.files.size).toBe(1);
   });

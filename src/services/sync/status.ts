@@ -11,6 +11,8 @@ export type SyncState =
   | "syncing"
   /** The backend needs the user to sign in again before anything moves. */
   | "signedOut"
+  /** The remote copy is encrypted with a passphrase this device does not have. */
+  | "wrongPassphrase"
   /** The last run failed; the scheduler tries again after `nextAttemptAt`. */
   | "error"
   /** The remote copy was written by a newer version; updating fixes it. */
@@ -29,7 +31,15 @@ export interface SyncStatus {
 }
 
 const STATUS_KEY = "fukidashi:sync-status";
-const STATES: readonly SyncState[] = ["off", "idle", "syncing", "signedOut", "error", "outdated"];
+const STATES: readonly SyncState[] = [
+  "off",
+  "idle",
+  "syncing",
+  "signedOut",
+  "wrongPassphrase",
+  "error",
+  "outdated",
+];
 
 export const DEFAULT_SYNC_STATUS: SyncStatus = { state: "off", lastSyncedAt: 0 };
 

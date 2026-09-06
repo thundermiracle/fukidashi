@@ -9,7 +9,8 @@ import { type RemoteSnapshot, type SyncBackend, SyncConflictError } from "@/serv
 export function createFakeSyncBackend(): SyncBackend & {
   /** What the remote holds, for a test to read or plant directly. */
   snapshot: () => RemoteSnapshot | null;
-  put: (payload: SyncPayload) => void;
+  /** Plants a payload; `rewrite` marks it as one the codec would write differently. */
+  put: (payload: SyncPayload, rewrite?: boolean) => void;
   /** How often the payload was read in full. */
   pulls: () => number;
   /** How often only the version was asked for. */
@@ -20,9 +21,9 @@ export function createFakeSyncBackend(): SyncBackend & {
   let pulls = 0;
   let peeks = 0;
 
-  const put = (payload: SyncPayload) => {
+  const put = (payload: SyncPayload, rewrite = false) => {
     revision += 1;
-    stored = { payload, version: `v${revision}` };
+    stored = { payload, version: `v${revision}`, ...(rewrite ? { rewrite } : {}) };
   };
 
   return {

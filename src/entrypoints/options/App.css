@@ -88,6 +88,36 @@
   cursor: default;
 }
 
+.fk-input {
+  width: 180px;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--fk-divider);
+  border-radius: 7px;
+  background: var(--fk-surface);
+  color: var(--fk-text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.fk-input:disabled {
+  opacity: 0.5;
+}
+
+/* A second matter inside the same card, set off from the first. */
+.fk-card__group {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--fk-divider);
+}
+
+.fk-card__heading {
+  margin: 0 0 6px;
+  color: var(--fk-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .fk-button {
   display: inline-flex;
   align-items: center;

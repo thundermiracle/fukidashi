@@ -40,12 +40,21 @@ Sync is off until you connect Google Drive on the settings page. Once you do:
   shows on the settings page so you can tell which account is connected. The
   email address and the sign-in token are stored locally and are not sent
   anywhere else.
+- Optionally, set a passphrase on the settings page. The notes are then
+  encrypted on your device before they are written to Drive (AES-256-GCM,
+  the key derived from the passphrase with PBKDF2-SHA256), and Google holds
+  only the encrypted form. The key stays on the device; the passphrase itself
+  is not stored anywhere. Every browser you connect has to be given the
+  passphrase, and nobody — not Google, not the developer — can recover a
+  forgotten one: without it the copy cannot be read, and syncing can only
+  start over from a browser that still holds the notes.
 
 To stop syncing, open the settings page and choose Disconnect. Tick "Also
 delete the copy in Google Drive" to remove the copy at the same time. The
 copy can also be removed from Google Drive itself: Settings → Manage apps →
 Fukidashi → Delete hidden app data. Removing the extension does not remove
-the copy.
+the copy. Disconnecting forgets the passphrase on that browser, if one was
+set.
 
 ## Permissions
 

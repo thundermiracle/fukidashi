@@ -1,16 +1,22 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Note } from "@/core";
+import { createSyncPayload, type Note } from "@/core";
 import { SYNC_NOW } from "@/services/messages";
 import { loadNotes } from "@/services/notes";
 import {
   DRIVE_FILE_NAME,
+  deriveSyncKey,
+  encryptPayload,
   loadDriveToken,
   loadSyncConfig,
+  loadSyncKey,
+  randomSalt,
+  readEnvelopeIfAny,
   type SyncStatus,
   saveDriveToken,
   saveSyncConfig,
+  saveSyncKey,
   saveSyncStatus,
 } from "@/services/sync";
 import { createFakeChromeIdentity } from "@/testing/fakeChromeIdentity";
@@ -81,7 +87,7 @@ function syncOutcome(): string {
 }
 
 /** A device that signed in earlier, with a token Drive still takes. */
-async function connectedEarlier(status: Partial<SyncStatus> = {}) {
+async function connectedEarlier(status: Partial<SyncStatus> = {}, copy = "{}") {
   await saveDriveToken({
     accessToken: "tok-1",
     expiresAt: Date.now() + 3_600_000,
@@ -90,7 +96,42 @@ async function connectedEarlier(status: Partial<SyncStatus> = {}) {
   await saveSyncConfig({ backend: "drive" });
   await saveSyncStatus({ state: "idle", lastSyncedAt: Date.now() - 120_000, ...status });
   drive.accept("tok-1", "me@example.com");
-  drive.plant(DRIVE_FILE_NAME, "{}");
+  drive.plant(DRIVE_FILE_NAME, copy);
+}
+
+/** Real enough to exercise the derivation, cheap enough for a test. */
+const ITERATIONS = 1_000;
+
+/** A copy in Drive that another browser encrypted with `passphrase`. */
+async function encryptedCopy(passphrase: string) {
+  const key = await deriveSyncKey(passphrase, randomSalt(), ITERATIONS);
+  return { key, copy: await encryptPayload(createSyncPayload([], 500), key) };
+}
+
+function inputLabelled(label: string): HTMLInputElement {
+  const input = syncCard().querySelector(`input[aria-label="${label}"]`);
+  if (!(input instanceof HTMLInputElement)) throw new Error(`no input labelled "${label}"`);
+  return input;
+}
+
+/** Types into a controlled input the way React notices: through the native setter. */
+async function type(input: HTMLInputElement, value: string) {
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+  await act(async () => {
+    setter?.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+/** Deriving a key from a passphrase takes real time; this waits for the page to say how it went. */
+async function waitForOutcome() {
+  const started = Date.now();
+  while (syncOutcome() === "") {
+    if (Date.now() - started > 10_000) throw new Error("no outcome appeared");
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+  }
 }
 
 async function tick(checkbox: Element | null) {
@@ -385,6 +426,92 @@ describe("syncing with Google Drive", () => {
     expect(syncOutcome()).toContain("The copy in Google Drive is gone");
     expect(drive.content(DRIVE_FILE_NAME)).toBeUndefined();
     await expect(loadSyncConfig()).resolves.toBeNull();
+  });
+
+  it("offers a passphrase while the copy in Drive is plain", async () => {
+    await connectedEarlier();
+    await renderPage();
+
+    expect(syncCard().textContent).toContain("Set a passphrase");
+    expect(buttonLabelled("Encrypt")).toBeDefined();
+    await expect(loadSyncKey()).resolves.toBeNull();
+  });
+
+  it("encrypts with a passphrase typed twice, and asks the background for a sync", async () => {
+    await connectedEarlier();
+    await renderPage();
+
+    await type(inputLabelled("Passphrase"), "correct horse");
+    await type(inputLabelled("Repeat the passphrase"), "correct horse");
+    await click(buttonLabelled("Encrypt"));
+    await waitForOutcome();
+
+    expect(syncOutcome()).toContain("Encrypted.");
+    await expect(loadSyncKey()).resolves.not.toBeNull();
+    expect(sendMessage).toHaveBeenCalledWith({ type: SYNC_NOW });
+    expect(syncCard().textContent).toContain("Encrypted with a passphrase");
+    expect(buttonLabelled("Remove passphrase")).toBeDefined();
+  });
+
+  it("refuses two passphrases that differ", async () => {
+    await connectedEarlier();
+    await renderPage();
+
+    await type(inputLabelled("Passphrase"), "correct horse");
+    await type(inputLabelled("Repeat the passphrase"), "correct hoarse");
+    await click(buttonLabelled("Encrypt"));
+
+    expect(syncOutcome()).toBe("The two passphrases differ.");
+    await expect(loadSyncKey()).resolves.toBeNull();
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("asks for the passphrase when the copy in Drive needs one, and syncs again once it opens", async () => {
+    const { key, copy } = await encryptedCopy("correct horse");
+    await connectedEarlier({ state: "wrongPassphrase" }, copy);
+    await renderPage();
+
+    expect(syncCard().textContent).toContain(
+      "The copy in Drive is encrypted. Enter its passphrase to keep syncing.",
+    );
+    await type(inputLabelled("Passphrase"), "correct horse");
+    await click(buttonLabelled("Unlock"));
+    await waitForOutcome();
+
+    expect(syncOutcome()).toBe("Passphrase accepted. Syncing again.");
+    await expect(loadSyncKey()).resolves.toEqual(key);
+    expect(sendMessage).toHaveBeenCalledWith({ type: SYNC_NOW });
+  });
+
+  it("says so when the passphrase does not open the copy", async () => {
+    const { copy } = await encryptedCopy("correct horse");
+    await connectedEarlier({ state: "wrongPassphrase" }, copy);
+    await renderPage();
+
+    await type(inputLabelled("Passphrase"), "wrong horse");
+    await click(buttonLabelled("Unlock"));
+    await waitForOutcome();
+
+    expect(syncOutcome()).toBe("That is not the passphrase the copy in Drive was encrypted with.");
+    expect(syncCard().querySelector(".fk-card__outcome--failed")).not.toBeNull();
+    await expect(loadSyncKey()).resolves.toBeNull();
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("removes the passphrase, and the copy in Drive goes back to plain form", async () => {
+    const { key, copy } = await encryptedCopy("correct horse");
+    await saveSyncKey(key);
+    await connectedEarlier({}, copy);
+    await renderPage();
+    expect(syncCard().textContent).toContain("Encrypted with a passphrase");
+
+    await click(buttonLabelled("Remove passphrase"));
+    await waitForOutcome();
+
+    expect(syncOutcome()).toContain("Passphrase removed.");
+    await expect(loadSyncKey()).resolves.toBeNull();
+    expect(readEnvelopeIfAny(drive.content(DRIVE_FILE_NAME) ?? "")).toBeNull();
+    expect(buttonLabelled("Encrypt")).toBeDefined();
   });
 
   it("stays connected when the copy could not be deleted", async () => {

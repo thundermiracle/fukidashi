@@ -27,6 +27,9 @@ memo — and find it again the next time you open the page.
   deletions carry across, and a note deleted anywhere stays deleted. The copy
   lives in a hidden folder in your own Google Drive; there is no server of
   ours in between.
+- **Encrypted, if you like** — set a passphrase on the settings page and the
+  notes are encrypted on your device before they reach Drive. Every browser
+  you connect needs the passphrase; a forgotten one cannot be recovered.
 - **Take them elsewhere** — the settings page writes every note out to one
   file: JSON to keep as a backup and read back in later, or Markdown to drop
   into a notes app — the plain kind Notion reads, or the properties, callouts
@@ -96,6 +99,12 @@ context, so it can be found again after the page changes. See
 - Sync needs a Google account; there is no other backend yet. A browser that
   has not synced for more than 30 days can bring back a note deleted in the
   meantime — deletions are kept for 30 days for it to catch up.
+- A forgotten passphrase cannot be recovered. Browsers that already have it go
+  on syncing; only a new browser is kept out. To start over, remove the
+  passphrase on every browser that has it (removing needs no passphrase), then
+  set a new one on one of them. If no browser has it any more, disconnect with
+  "Also delete the copy in Google Drive" from a browser that still holds the
+  notes, and connect again.
 - Deleting a note is immediate — there is no undo.
 - Built for Chrome; a Firefox build is produced but has not been tested there.
 

@@ -7,6 +7,7 @@ import { createFakeSyncBackend } from "@/testing/fakeSyncBackend";
 import { SYNC_NOW } from "../messages";
 import { saveNote } from "../notes";
 import { type SyncBackend, SyncSignedOutError } from "./backend";
+import { SyncPassphraseError } from "./codec";
 import { saveSyncConfig } from "./config";
 import { type BackendFactory, SYNC_ALARM, type SyncController, startSync } from "./scheduler";
 import { loadSyncStatus, saveSyncStatus } from "./status";
@@ -280,6 +281,27 @@ describe("startSync", () => {
 
     // Only the user brings it back, from the settings page.
     await controller.syncNow();
+    expect(attempts()).toBe(2);
+  });
+
+  it("stops trying when the copy needs a passphrase, until the settings page brings one", async () => {
+    const attempts = failWith(() => new SyncPassphraseError());
+    start();
+    await settle();
+    expect(await loadSyncStatus()).toMatchObject({
+      state: "wrongPassphrase",
+      error: "The copy is encrypted with a passphrase this browser does not have.",
+    });
+
+    alarms.fire(SYNC_ALARM);
+    await saveNote(PAGE, makeNote("a", 100));
+    vi.advanceTimersByTime(60 * MINUTE);
+    await settle();
+    expect(attempts()).toBe(1);
+
+    // The settings page asks once the passphrase is in, and that run is not held back.
+    runtime.send({ type: SYNC_NOW });
+    await settle();
     expect(attempts()).toBe(2);
   });
 

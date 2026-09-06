@@ -18,9 +18,17 @@
   `chrome.identity.launchWebAuthFlow`, the stored token), `api.ts` (the few Drive calls,
   retried once with a renewed token), `backend.ts` (one file in the app folder, with a
   version check standing in for the If-Match that Drive API v3 lacks, and a write that
-  still went over another device's repaired through the file's revisions) and
-  `connection.ts` (connecting and disconnecting, as the settings page does it). The
-  design is in `docs/sync-design.md`.
+  still went over another device's repaired through the file's revisions),
+  `connection.ts` (connecting and disconnecting, as the settings page does it) and
+  `passphrase.ts` (setting the passphrase — adopting the salt of a copy that is already
+  encrypted and trying the passphrase on it first — and removing it, which rewrites the
+  copy as plaintext through one sync round with a codec that still opens it). The codec
+  (`codec.ts`) is one and the same, plain or AES-256-GCM depending on the key it reads on
+  every call from `fukidashi:sync:key` (`key.ts`; derived from the passphrase with
+  PBKDF2-SHA256, 600k rounds, never synced). It reads both forms while it has a key and
+  flags a plaintext copy for a rewrite, which is how a passphrase takes effect without an
+  edit; a copy it cannot open is the `wrongPassphrase` state. The design is in
+  `docs/sync-design.md`.
 - `src/testing/` holds test helpers: fakes for `chrome.storage`, `chrome.alarms`,
   `chrome.identity`, the runtime's start-up events, the sync backend and Google Drive
   (behind a `fetch` of its own), and the Vitest setup file that fills in `Range.getBoundingClientRect` and
