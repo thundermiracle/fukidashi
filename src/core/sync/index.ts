@@ -1,3 +1,4 @@
+export { digestSyncPages } from "./digest";
 export { canonicalizeSyncPages, mergeSyncPages } from "./merge";
 export {
   createSyncPayload,

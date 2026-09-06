@@ -4,7 +4,7 @@ const FILES_ENDPOINT = "https://www.googleapis.com/drive/v3/files";
 const UPLOAD_ENDPOINT = "https://www.googleapis.com/upload/drive/v3/files";
 /** What a simple or multipart upload may carry; beyond it Drive wants a resumable one. */
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
-const FILE_FIELDS = "id,version,md5Checksum,size";
+const FILE_FIELDS = "id,version,md5Checksum,size,headRevisionId";
 const MULTIPART_BOUNDARY = "fukidashi-metadata-and-content";
 
 /** The little Drive says about a file that the backend needs. */
@@ -14,6 +14,12 @@ export interface DriveFile {
   version: string;
   md5Checksum?: string;
   size?: string;
+  /** The revision the content is at; every upload makes a new one. */
+  headRevisionId?: string;
+}
+
+export interface DriveRevision {
+  id: string;
 }
 
 /** A response Drive answered with something other than success. */
@@ -41,6 +47,9 @@ export interface DriveApi {
   create(name: string, content: string): Promise<DriveFile>;
   update(id: string, content: string): Promise<DriveFile>;
   delete(id: string): Promise<void>;
+  /** The file's revisions, oldest first, as far back as Drive still keeps them. */
+  listRevisions(id: string): Promise<DriveRevision[]>;
+  readRevision(id: string, revisionId: string): Promise<string>;
 }
 
 function byteLength(text: string): number {
@@ -141,6 +150,25 @@ export function createDriveApi(bearer: BearerSource, fetchImpl: typeof fetch = f
 
     async delete(id) {
       await send(`${FILES_ENDPOINT}/${id}`, { method: "DELETE" });
+    },
+
+    async listRevisions(id) {
+      const revisions: DriveRevision[] = [];
+      let pageToken: string | undefined;
+      do {
+        const url = `${FILES_ENDPOINT}/${id}/revisions?pageSize=1000${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ""}`;
+        const page = (await (await send(url)).json()) as {
+          revisions?: DriveRevision[];
+          nextPageToken?: string;
+        };
+        revisions.push(...(page.revisions ?? []));
+        pageToken = page.nextPageToken;
+      } while (pageToken);
+      return revisions;
+    },
+
+    async readRevision(id, revisionId) {
+      return (await send(`${FILES_ENDPOINT}/${id}/revisions/${revisionId}?alt=media`)).text();
     },
   };
 }

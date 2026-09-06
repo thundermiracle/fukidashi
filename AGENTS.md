@@ -8,14 +8,17 @@
   (storage, highlight rendering, messaging).
 - `src/services/sync/` holds the cross-device sync layer: the `SyncBackend` interface,
   the pull-merge-push engine, its scheduler, and the per-device config and status
-  (`fukidashi:sync:config`, `fukidashi:sync-status`). The scheduler registers its
-  listeners synchronously and looks the backend up lazily through
+  (`fukidashi:sync:config`, `fukidashi:sync-status`, and `fukidashi:sync:checkpoint`,
+  which records the remote's version and the pages' digest after each sync so that a
+  round in which neither moved costs one request and no read). The scheduler registers
+  its listeners synchronously and looks the backend up lazily through
   `loadSyncBackend(config)`; until the user connects on the settings page there is no
   config, and the background entrypoint stays idle. `src/services/sync/drive/` holds the
   Google Drive backend: `auth.ts` (the implicit OAuth flow through
   `chrome.identity.launchWebAuthFlow`, the stored token), `api.ts` (the few Drive calls,
   retried once with a renewed token), `backend.ts` (one file in the app folder, with a
-  version check standing in for the If-Match that Drive API v3 lacks) and
+  version check standing in for the If-Match that Drive API v3 lacks, and a write that
+  still went over another device's repaired through the file's revisions) and
   `connection.ts` (connecting and disconnecting, as the settings page does it). The
   design is in `docs/sync-design.md`.
 - `src/testing/` holds test helpers: fakes for `chrome.storage`, `chrome.alarms`,

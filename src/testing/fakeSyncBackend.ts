@@ -10,11 +10,15 @@ export function createFakeSyncBackend(): SyncBackend & {
   /** What the remote holds, for a test to read or plant directly. */
   snapshot: () => RemoteSnapshot | null;
   put: (payload: SyncPayload) => void;
+  /** How often the payload was read in full. */
   pulls: () => number;
+  /** How often only the version was asked for. */
+  peeks: () => number;
 } {
   let stored: RemoteSnapshot | null = null;
   let revision = 0;
   let pulls = 0;
+  let peeks = 0;
 
   const put = (payload: SyncPayload) => {
     revision += 1;
@@ -26,6 +30,10 @@ export function createFakeSyncBackend(): SyncBackend & {
       pulls += 1;
       return stored;
     },
+    async peek() {
+      peeks += 1;
+      return stored?.version ?? null;
+    },
     async push(payload, baseVersion) {
       if ((stored?.version ?? null) !== baseVersion) throw new SyncConflictError();
       put(payload);
@@ -34,5 +42,6 @@ export function createFakeSyncBackend(): SyncBackend & {
     snapshot: () => stored,
     put,
     pulls: () => pulls,
+    peeks: () => peeks,
   };
 }

@@ -35,6 +35,12 @@ export interface SyncBackend {
   /** The stored payload, or null when nothing has been pushed yet. */
   pull(): Promise<RemoteSnapshot | null>;
   /**
+   * The version the remote copy has right now, without reading it — null
+   * when nothing has been pushed yet. Optional: a backend without it is
+   * read on every sync; one with it is only read when the version moved.
+   */
+  peek?(): Promise<string | null>;
+  /**
    * Replaces the remote copy, but only if it still reads as `baseVersion`
    * (null meaning "nothing was there"). Throws `SyncConflictError` otherwise,
    * which is the engine's cue to pull, merge again and retry.

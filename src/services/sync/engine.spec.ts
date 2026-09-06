@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createSyncPayload,
+  mergeSyncPages,
   type Note,
   type SyncPage,
   type SyncPayload,
@@ -44,10 +45,11 @@ function fakeBackendRemote(): Remote {
 }
 
 /** Google Drive as the fake stands in for it, with a client per device. */
-function driveRemote(): Remote {
+function driveRemote(): Remote & { drive: ReturnType<typeof createFakeDrive> } {
   const drive = createFakeDrive();
   const backends = new Map<string, SyncBackend>();
   return {
+    drive,
     backendFor: (device) => {
       let backend = backends.get(device);
       if (!backend) {
@@ -164,6 +166,71 @@ describe("syncOnce", () => {
     backend.pull = realPull;
     await syncOnce(backend);
     pushed("edited meanwhile");
+  });
+
+  it("does not read the remote when nothing moved since the last round", async () => {
+    const backend = createFakeSyncBackend();
+    await saveNote(PAGE, makeNote("a", 100));
+    await syncOnce(backend);
+    const pulls = backend.pulls();
+
+    await expect(syncOnce(backend)).resolves.toEqual({ changedLocally: false, pushed: false });
+
+    expect(backend.pulls()).toBe(pulls);
+    expect(backend.peeks()).toBe(1);
+  });
+
+  it("pushes without reading when only this device changed", async () => {
+    const backend = createFakeSyncBackend();
+    await saveNote(PAGE, makeNote("a", 100));
+    await syncOnce(backend);
+    const pulls = backend.pulls();
+
+    await saveNote(PAGE, makeNote("b", 200));
+    await expect(syncOnce(backend)).resolves.toEqual({ changedLocally: false, pushed: true });
+
+    expect(backend.pulls()).toBe(pulls);
+    expect(backend.snapshot()?.payload.pages[0].notes).toHaveLength(2);
+  });
+
+  it("reads the remote once it moved", async () => {
+    const backend = createFakeSyncBackend();
+    await saveNote(PAGE, makeNote("a", 100));
+    await syncOnce(backend);
+    const pulls = backend.pulls();
+
+    // Another device pushed in the meantime.
+    backend.put(createSyncPayload([{ url: OTHER, notes: [makeNote("b", 100)] }], 0));
+    const result = await syncOnce(backend);
+
+    expect(result.changedLocally).toBe(true);
+    expect(backend.pulls()).toBe(pulls + 1);
+    await expect(loadNotes(OTHER)).resolves.toMatchObject([{ id: "b" }]);
+  });
+
+  it("reads the remote back after a push that took in another device's notes", async () => {
+    const backend = createFakeSyncBackend();
+    await saveNote(PAGE, makeNote("a", 100));
+    await syncOnce(backend);
+    await saveNote(PAGE, makeNote("c", 300));
+
+    // The backend found another device's write under its own, wrote the
+    // union, and reported a conflict — the way the Drive backend does.
+    const realPush = backend.push.bind(backend);
+    let repaired = false;
+    backend.push = async (payload, baseVersion) => {
+      if (repaired) return realPush(payload, baseVersion);
+      repaired = true;
+      const theirs = [{ url: PAGE, notes: [makeNote("b", 200)] }];
+      backend.put(createSyncPayload(mergeSyncPages(payload.pages, theirs), 0));
+      throw new SyncConflictError();
+    };
+
+    await expect(syncOnce(backend)).resolves.toEqual({ changedLocally: true, pushed: false });
+
+    await expect(loadNotes(PAGE)).resolves.toMatchObject([{ id: "a" }, { id: "b" }, { id: "c" }]);
+    // With the union read back, the next round has nothing to do.
+    await expect(syncOnce(backend)).resolves.toEqual({ changedLocally: false, pushed: false });
   });
 
   it("merges again and retries when another device pushed in between", async () => {
@@ -297,5 +364,24 @@ describe.each([
     expect(await sync("laptop")).toEqual({ changedLocally: false, pushed: false });
     expect(await sync("desktop")).toEqual({ changedLocally: false, pushed: false });
     expect(remote.pages()?.[0].title).toMatchObject({ text: "Docs" });
+  });
+});
+
+describe("an idle round on Google Drive", () => {
+  it("costs one request, the one that asks for the version", async () => {
+    const remote = driveRemote();
+    const { on, sync } = createDevices(remote);
+    await on("desktop", () => saveNote(PAGE, makeNote("a", 100)));
+    await sync("desktop");
+    await sync("laptop");
+    await sync("desktop");
+    const before = remote.drive.requests.length;
+
+    await expect(sync("desktop")).resolves.toEqual({ changedLocally: false, pushed: false });
+
+    const added = remote.drive.requests.slice(before);
+    expect(added).toHaveLength(1);
+    expect(added[0]).toMatchObject({ method: "GET" });
+    expect(new URL(added[0].url).pathname).toBe("/drive/v3/files");
   });
 });
