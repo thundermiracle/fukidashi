@@ -6,15 +6,19 @@ import { SYNC_NOW } from "@/services/messages";
 import { loadNotes } from "@/services/notes";
 import {
   DRIVE_FILE_NAME,
+  deriveRelayIdentity,
   deriveSyncKey,
   encryptPayload,
+  generateSyncCode,
   loadDriveToken,
+  loadRelayCode,
   loadSyncConfig,
   loadSyncKey,
   randomSalt,
   readEnvelopeIfAny,
   type SyncStatus,
   saveDriveToken,
+  saveRelayCode,
   saveSyncConfig,
   saveSyncKey,
   saveSyncStatus,
@@ -22,6 +26,7 @@ import {
 import { createFakeChromeIdentity } from "@/testing/fakeChromeIdentity";
 import { createFakeChromeStorage } from "@/testing/fakeChromeStorage";
 import { createFakeDrive } from "@/testing/fakeDrive";
+import { createFakeRelay } from "@/testing/fakeRelay";
 import App from "./App";
 
 const CURRENT_PAGE = "https://example.com/docs";
@@ -41,6 +46,8 @@ function makeNote(id: string, comment: string, start = 0): Note {
 let storage: ReturnType<typeof createFakeChromeStorage>;
 let identity: ReturnType<typeof createFakeChromeIdentity>;
 let drive: ReturnType<typeof createFakeDrive>;
+let relay: ReturnType<typeof createFakeRelay>;
+let writeText: ReturnType<typeof vi.fn>;
 let sendMessage: ReturnType<typeof vi.fn>;
 let container: HTMLDivElement;
 let root: Root | null = null;
@@ -194,9 +201,17 @@ beforeEach(async () => {
   identity = createFakeChromeIdentity();
   drive = createFakeDrive();
   sendMessage = vi.fn(async () => undefined);
+  relay = createFakeRelay();
+  writeText = vi.fn(async () => undefined);
   vi.stubGlobal("chrome", { ...storage.chrome, ...identity.chrome, runtime: { sendMessage } });
-  vi.stubGlobal("fetch", drive.fetch);
+  // Google and the relay share one fetch, told apart by the address.
+  vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    return url.startsWith(relay.baseUrl) ? relay.fetch(input, init) : drive.fetch(input, init);
+  });
+  Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
   vi.stubEnv("WXT_GOOGLE_CLIENT_ID", "client-1");
+  vi.stubEnv("WXT_SYNC_RELAY_URL", relay.baseUrl);
 
   await storage.chrome.storage.local.set({
     [`fukidashi:notes:${CURRENT_PAGE}`]: [makeNote("a", "on this page", 10)],
@@ -529,5 +544,178 @@ describe("syncing with Google Drive", () => {
     expect(syncCard().textContent).toContain("Connected as me@example.com.");
     await expect(loadSyncConfig()).resolves.toEqual({ backend: "drive" });
     expect(drive.content(DRIVE_FILE_NAME)).toBe("{}");
+  });
+});
+
+describe("syncing with a code", () => {
+  const CODE_SHAPE = /^[0-9A-HJKMNP-TV-Z]{4}(-[0-9A-HJKMNP-TV-Z]{4}){5}$/;
+
+  /** A code another browser created, with its notes on the relay. */
+  async function codeInUse(): Promise<string> {
+    const code = generateSyncCode();
+    const { blobId, key } = await deriveRelayIdentity(code);
+    relay.plant(blobId, await encryptPayload(createSyncPayload([], 500), key));
+    return code;
+  }
+
+  /** This browser, connected with a code earlier. */
+  async function connectedWithCode(status: Partial<SyncStatus> = {}): Promise<string> {
+    const code = await codeInUse();
+    await saveRelayCode(code);
+    await saveSyncConfig({ backend: "relay" });
+    await saveSyncStatus({ state: "idle", lastSyncedAt: Date.now() - 120_000, ...status });
+    return code;
+  }
+
+  function shownCode(): string | undefined {
+    return syncCard().querySelector(".fk-code")?.textContent ?? undefined;
+  }
+
+  it("offers a code beside Google Drive while nothing syncs", async () => {
+    await renderPage();
+
+    expect(syncCard().textContent).toContain("Keep your notes on every browser");
+    expect(buttonLabelled("Connect Google Drive")).toBeDefined();
+    expect(buttonLabelled("Create a sync code")).toBeDefined();
+    expect(buttonLabelled("Join")).toBeDefined();
+    expect(inputLabelled("Sync code")).toBeDefined();
+  });
+
+  it("creates a code, shows it, and asks the background for the first sync", async () => {
+    await renderPage();
+
+    await click(buttonLabelled("Create a sync code"));
+    await waitForOutcome();
+
+    expect(syncOutcome()).toContain("Here is your sync code");
+    const code = shownCode() ?? "";
+    expect(code).toMatch(CODE_SHAPE);
+    await expect(loadRelayCode()).resolves.toBe(code);
+    await expect(loadSyncConfig()).resolves.toEqual({ backend: "relay" });
+    expect(sendMessage).toHaveBeenCalledWith({ type: SYNC_NOW });
+    expect(syncCard().textContent).toContain("Connected with a sync code.");
+    // The blob is claimed at once, so another browser can join right away.
+    const { blobId } = await deriveRelayIdentity(code);
+    expect(relay.content(blobId)).toBeDefined();
+  });
+
+  it("cannot create a code from a build without a relay address", async () => {
+    vi.stubEnv("WXT_SYNC_RELAY_URL", "");
+    await renderPage();
+
+    await click(buttonLabelled("Create a sync code"));
+    await waitForOutcome();
+
+    expect(syncOutcome()).toContain("relay address");
+    await expect(loadSyncConfig()).resolves.toBeNull();
+  });
+
+  it("joins with a code from another browser, however it was typed", async () => {
+    const code = await codeInUse();
+    await renderPage();
+
+    await type(inputLabelled("Sync code"), code.toLowerCase());
+    await click(buttonLabelled("Join"));
+    await waitForOutcome();
+
+    expect(syncOutcome()).toBe("Joined. The notes are on their way.");
+    await expect(loadRelayCode()).resolves.toBe(code);
+    await expect(loadSyncConfig()).resolves.toEqual({ backend: "relay" });
+    expect(sendMessage).toHaveBeenCalledWith({ type: SYNC_NOW });
+  });
+
+  it("asks for a code before joining", async () => {
+    await renderPage();
+
+    await click(buttonLabelled("Join"));
+
+    expect(syncOutcome()).toBe("Enter the sync code from your other browser.");
+    expect(relay.requests).toEqual([]);
+  });
+
+  it("says so when the text is not a code", async () => {
+    await renderPage();
+
+    await type(inputLabelled("Sync code"), "not a code");
+    await click(buttonLabelled("Join"));
+    await waitForOutcome();
+
+    expect(syncOutcome()).toContain("not a sync code");
+    await expect(loadSyncConfig()).resolves.toBeNull();
+  });
+
+  it("says so when the code names nothing", async () => {
+    await renderPage();
+
+    await type(inputLabelled("Sync code"), generateSyncCode());
+    await click(buttonLabelled("Join"));
+    await waitForOutcome();
+
+    expect(syncOutcome()).toContain("No notes are stored under this code");
+    await expect(loadSyncConfig()).resolves.toBeNull();
+    await expect(loadRelayCode()).resolves.toBeNull();
+  });
+
+  it("shows when the notes last synced, and asks for a sync on request", async () => {
+    await connectedWithCode();
+    await renderPage();
+
+    expect(syncCard().textContent).toContain("Connected with a sync code. Last synced 2m ago.");
+    await click(buttonLabelled("Sync now"));
+
+    expect(sendMessage).toHaveBeenCalledWith({ type: SYNC_NOW });
+  });
+
+  it("shows the code again on request, copies it, and hides it", async () => {
+    const code = await connectedWithCode();
+    await renderPage();
+    expect(shownCode()).toBeUndefined();
+
+    await click(buttonLabelled("Show code"));
+    expect(shownCode()).toBe(code);
+
+    await click(buttonLabelled("Copy"));
+    await waitForOutcome();
+    expect(writeText).toHaveBeenCalledWith(code);
+    expect(syncOutcome()).toBe("Copied.");
+
+    await click(buttonLabelled("Hide code"));
+    expect(shownCode()).toBeUndefined();
+  });
+
+  it("says when the notes on the relay were written with another code", async () => {
+    await connectedWithCode({ state: "wrongPassphrase" });
+    await renderPage();
+
+    expect(syncCard().textContent).toContain("were not written with this code");
+  });
+
+  it("disconnects, leaving the notes on the relay", async () => {
+    const code = await connectedWithCode();
+    await renderPage();
+
+    await click(buttonLabelled("Disconnect"));
+    await waitForOutcome();
+
+    expect(buttonLabelled("Create a sync code")).toBeDefined();
+    expect(syncOutcome()).toContain("stay for your other browsers");
+    await expect(loadSyncConfig()).resolves.toBeNull();
+    await expect(loadRelayCode()).resolves.toBeNull();
+    const { blobId } = await deriveRelayIdentity(code);
+    expect(relay.content(blobId)).toBeDefined();
+  });
+
+  it("deletes the notes on the relay on the way out when asked", async () => {
+    const code = await connectedWithCode();
+    await renderPage();
+
+    await tick(syncCard().querySelector('input[type="checkbox"]'));
+    await click(buttonLabelled("Disconnect"));
+    await waitForOutcome();
+
+    expect(syncOutcome()).toContain("The notes on the relay are gone");
+    const { blobId } = await deriveRelayIdentity(code);
+    expect(relay.content(blobId)).toBeUndefined();
+    await expect(loadSyncConfig()).resolves.toBeNull();
   });
 });

@@ -101,10 +101,11 @@
 - Get a new one with `node scripts/get-chrome-refresh-token.mjs`, then update that one
   secret. Do not reach for `wxt submit init`: it asks Google for the out-of-band
   redirect, which Google stopped accepting in January 2023, and 6.1.1 still does.
-- The store builds bake in the OAuth client id the Drive sync signs in with, from the
-  `WXT_GOOGLE_CLIENT_ID` repository variable (Settings → Secrets and variables →
-  Actions → Variables). It is public, so a variable rather than a secret; without it
-  every released build's Connect button refuses.
+- The store builds bake in the OAuth client id the Drive sync signs in with and the address
+  of the sync-code relay, from the `WXT_GOOGLE_CLIENT_ID` and `WXT_SYNC_RELAY_URL` repository
+  variables (Settings → Secrets and variables → Actions → Variables). Both are public, so
+  variables rather than secrets; without them every released build's Connect and Create a
+  sync code buttons refuse. The relay itself is deployed separately, from `relay/`.
 - What the store forms ask, and what to answer, is in `docs/store-disclosures.md`.
 
 ## Security & Configuration Tips
@@ -116,10 +117,12 @@
   Firefox before signing in, so nothing leaves the device until the user says so. After
   touching the manifest, check a Firefox build with
   `pnpm dlx web-ext lint --source-dir dist/firefox-mv2`.
-- `.env` (see `.env.example`) carries two build-time values: `WXT_GOOGLE_CLIENT_ID`, the
-  OAuth client the Drive sync signs in with, and `WXT_EXTENSION_KEY`, the store build's
-  public key, which gives a Chrome dev build the store build's extension id so the OAuth
-  redirect URI matches. Neither is a secret; a fork should use a client of its own.
+- `.env` (see `.env.example`) carries three build-time values: `WXT_GOOGLE_CLIENT_ID`, the
+  OAuth client the Drive sync signs in with; `WXT_EXTENSION_KEY`, the store build's public
+  key, which gives a Chrome dev build the store build's extension id so the OAuth redirect
+  URI matches; and `WXT_SYNC_RELAY_URL`, where the sync-code relay answers. None is a secret;
+  a fork should use a client and a relay of its own (the relay is deployed from `relay/`
+  with `pnpm dlx wrangler deploy`, see `relay/README.md`).
 - Keep logic in `src/core/` pure and side-effect free for easier review.
 - `pnpm-workspace.yaml` lists the only dependencies allowed to run install scripts
   (`allowBuilds`); add an entry deliberately rather than approving everything.

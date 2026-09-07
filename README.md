@@ -27,6 +27,11 @@ memo — and find it again the next time you open the page.
   deletions carry across, and a note deleted anywhere stays deleted. The copy
   lives in a hidden folder in your own Google Drive; there is no server of
   ours in between.
+- **Or a sync code instead of Google** — create a code on one browser and
+  enter it on the others. The notes travel encrypted with the code through a
+  small relay the developer runs; it cannot read them, and it forgets notes
+  nobody has synced for 90 days. Anyone with the code can read the notes, so
+  keep it as you would a password.
 - **Encrypted, if you like** — set a passphrase on the settings page and the
   notes are encrypted on your device before they reach Drive. Every browser
   you connect needs the passphrase; a forgotten one cannot be recovered.
@@ -55,8 +60,10 @@ pnpm run dev
 `dist/chrome-mv3` as an unpacked extension on `chrome://extensions`.
 
 Connecting Google Drive needs an OAuth client id in `.env` (see
-`.env.example`); without one the Connect button refuses. The store builds get
-theirs from the `WXT_GOOGLE_CLIENT_ID` repository variable.
+`.env.example`), and syncing with a code needs the relay's address there too
+(`WXT_SYNC_RELAY_URL`; a fork deploys its own relay from `relay/`). The store
+builds get theirs from the `WXT_GOOGLE_CLIENT_ID` and `WXT_SYNC_RELAY_URL`
+repository variables.
 
 ## Commands
 
@@ -96,7 +103,8 @@ context, so it can be found again after the page changes. See
   original page, where there is no translated text to jump to.
 - A note is lost when the page rewrites the text it was attached to; the popup
   still lists it, and the highlight returns if the text comes back.
-- Sync needs a Google account; there is no other backend yet. A browser that
+- Sync needs a Google account or the developer's relay; a fork has to run a
+  relay of its own (see `relay/README.md`). A browser that
   has not synced for more than 30 days can bring back a note deleted in the
   meantime — deletions are kept for 30 days for it to catch up.
 - A forgotten passphrase cannot be recovered. Browsers that already have it go

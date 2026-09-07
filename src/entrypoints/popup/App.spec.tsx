@@ -279,6 +279,15 @@ describe("syncing, in the footer", () => {
     expect(syncLine()?.classList.contains("fk-popup__sync--attention")).toBe(true);
   });
 
+  it("says only that something needs looking at when there is no passphrase to enter", async () => {
+    await saveSyncConfig({ backend: "relay" });
+    await saveSyncStatus({ state: "wrongPassphrase", lastSyncedAt: 0 });
+    await renderPopup();
+
+    expect(syncLine()?.textContent).toBe("Sync needs attention");
+    expect(syncLine()?.classList.contains("fk-popup__sync--attention")).toBe(true);
+  });
+
   it("asks for attention when the user is needed", async () => {
     await saveSyncConfig({ backend: "drive" });
     await saveSyncStatus({ state: "signedOut", lastSyncedAt: 0 });
