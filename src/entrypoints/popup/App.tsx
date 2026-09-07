@@ -24,6 +24,7 @@ import {
   DEFAULT_SYNC_STATUS,
   loadSyncConfig,
   loadSyncStatus,
+  type SyncConfig,
   type SyncStatus,
   watchSyncStatus,
 } from "@/services/sync";
@@ -33,15 +34,24 @@ function notesOf(pages: PageNotes[], url: string): Note[] {
   return pages.find((page) => page.url === url)?.notes ?? [];
 }
 
-/** The footer's word on syncing: where it stands, and whether it needs the user. */
-function describeSync(status: SyncStatus): { text: string; needsAttention: boolean } {
+/**
+ * The footer's word on syncing: where it stands, and whether it needs the
+ * user. What is asked of them depends on the backend — a passphrase is a
+ * thing only the Drive sync has.
+ */
+function describeSync(
+  status: SyncStatus,
+  backend: SyncConfig["backend"],
+): { text: string; needsAttention: boolean } {
   switch (status.state) {
     case "syncing":
       return { text: "Syncing…", needsAttention: false };
     case "signedOut":
       return { text: "Sign in to sync", needsAttention: true };
     case "wrongPassphrase":
-      return { text: "Enter passphrase to sync", needsAttention: true };
+      return backend === "drive"
+        ? { text: "Enter passphrase to sync", needsAttention: true }
+        : { text: "Sync needs attention", needsAttention: true };
     case "error":
       return { text: "Sync failed", needsAttention: true };
     case "outdated":
@@ -66,15 +76,15 @@ function App() {
   const [tab, setTab] = useState<"page" | "sites">("page");
   /** The page drilled into from the site list, if any. */
   const [openedUrl, setOpenedUrl] = useState<string | null>(null);
-  /** Whether this browser syncs, and how that is going; nothing is shown while it does not. */
-  const [syncConnected, setSyncConnected] = useState(false);
+  /** How this browser syncs, and how that is going; nothing is shown while it does not. */
+  const [syncConfig, setSyncConfig] = useState<SyncConfig | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(DEFAULT_SYNC_STATUS);
 
   useEffect(() => {
     const load = async () => {
       try {
         const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        const [storedPages, settings, syncConfig, status] = await Promise.all([
+        const [storedPages, settings, config, status] = await Promise.all([
           loadAllPageNotes(),
           loadSettings(),
           loadSyncConfig(),
@@ -85,7 +95,7 @@ function App() {
         setCurrentUrl(activeTab?.url ? normalizePageUrl(activeTab.url) : "");
         setPages(storedPages);
         setEnabled(settings.enabled);
-        setSyncConnected(syncConfig !== null);
+        setSyncConfig(config);
         setSyncStatus(status);
       } catch (error) {
         console.error("Fukidashi: could not read the stored notes", error);
@@ -105,7 +115,7 @@ function App() {
 
   const sites = useMemo(() => groupBySite(pages), [pages]);
   const totalNotes = pages.reduce((total, page) => total + page.notes.length, 0);
-  const sync = describeSync(syncStatus);
+  const sync = describeSync(syncStatus, syncConfig?.backend ?? "drive");
 
   // One page's notes are listed either because it is the page in front of the
   // user, or because they picked it out of the site list.
@@ -277,7 +287,7 @@ function App() {
           checked={enabled}
           onChange={handleToggle}
         />
-        {syncConnected && (
+        {syncConfig !== null && (
           <button
             type="button"
             className={`fk-popup__sync${sync.needsAttention ? " fk-popup__sync--attention" : ""}`}

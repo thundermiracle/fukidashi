@@ -118,6 +118,23 @@
   font-weight: 600;
 }
 
+.fk-card__body--last {
+  margin-bottom: 0;
+}
+
+/* A sync code, set so it can be read out and typed elsewhere. */
+.fk-code {
+  padding: 6px 10px;
+  border: 1px solid var(--fk-divider);
+  border-radius: 7px;
+  background: var(--fk-surface);
+  color: var(--fk-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  user-select: all;
+}
+
 .fk-button {
   display: inline-flex;
   align-items: center;

@@ -1,11 +1,13 @@
 # Privacy Policy for Fukidashi
 
-**Last updated: September 5, 2026**
+**Last updated: September 8, 2026**
 
-Fukidashi keeps your notes on your device. If you choose to connect Google
-Drive, it also keeps a copy of them in your own Google Drive account, so that
-your other browsers can read it. Nothing is ever sent to us: there is no
-server of ours, no account with us, no analytics, and no tracking.
+Fukidashi keeps your notes on your device. If you choose to sync them, it also
+keeps a copy where your other browsers can read it: in your own Google Drive
+account, or — encrypted with a code only you hold — on a small relay we run
+for those who would rather not use Google. There is no account with us, no
+analytics, and no tracking. The relay is the one server of ours, and it cannot
+read what it holds.
 
 ## What Fukidashi stores, and where
 
@@ -19,7 +21,7 @@ When you highlight text or write a note, Fukidashi saves:
 - one on/off setting for the extension.
 
 All of this is stored locally in your browser through `chrome.storage.local`.
-Unless you connect Google Drive, it never leaves your device.
+Unless you switch syncing on, it never leaves your device.
 
 ## Syncing with Google Drive (optional)
 
@@ -56,6 +58,32 @@ Fukidashi → Delete hidden app data. Removing the extension does not remove
 the copy. Disconnecting forgets the passphrase on that browser, if one was
 set.
 
+## Syncing with a sync code (optional)
+
+Instead of Google Drive you can sync with a code. Once you create one on the
+settings page, or enter one from another browser:
+
+- The code stays on your device. From it Fukidashi derives two things: an id
+  that names your notes on the relay, and a key. The relay only ever sees the
+  id; the key never leaves the device, and neither leads back to the code.
+- Your notes — the same set as above — are encrypted on your device with that
+  key (AES-256-GCM) before they are sent, and decrypted only on a browser
+  that has the code. The relay holds the encrypted form and cannot read it.
+- The relay is run by the developer of Fukidashi on Cloudflare Workers. It
+  keeps, per id, the encrypted notes and when they were last synced. As with
+  any web request, Cloudflare records the address it came from and when, for
+  a limited time, under Cloudflare's own privacy policy:
+  https://www.cloudflare.com/privacypolicy/. We do not use those records for
+  anything beyond keeping the relay running.
+- The copy is updated a few seconds after you edit a note, and checked every
+  15 minutes for what your other browsers wrote.
+- Notes nobody has synced for 90 days are deleted from the relay. To delete
+  them sooner, choose Disconnect on the settings page with "Also delete the
+  notes on the relay".
+- Anyone who has the code can read and change the notes, so treat it as you
+  would a password. A lost code cannot be recovered: create a new one on a
+  browser that still holds the notes.
+
 ## Permissions
 
 - **storage** — saves your notes and the on/off setting on your device.
@@ -70,9 +98,9 @@ set.
   annotation toolbar when you select text. Page content is processed only on
   your device and only for this purpose.
 
-On Firefox, connecting Google Drive also asks for permission to send the
-addresses of annotated pages and the text quoted from them, which is what the
-notes contain.
+On Firefox, switching syncing on — with Google Drive or with a sync code —
+also asks for permission to send the addresses of annotated pages and the
+text quoted from them, which is what the notes contain.
 
 ## Data removal
 
@@ -80,6 +108,8 @@ Delete individual notes from the page or from the popup at any time. Removing
 the extension (`chrome://extensions`) deletes everything stored on the device.
 If you had connected Google Drive, disconnect first with "Also delete the copy
 in Google Drive", or delete the hidden app data from Google Drive's settings.
+If you synced with a code, disconnect with "Also delete the notes on the
+relay"; otherwise the relay deletes them 90 days after the last sync.
 
 ## Changes
 

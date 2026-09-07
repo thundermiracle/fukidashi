@@ -247,10 +247,10 @@ Dependencies: 0 → 1 → 2 → 3. Steps 4 and 5 follow 2 and are independent of
 - Scope: the AES-256-GCM codec, a passphrase setting on the options page (set, unlock, remove), key storage (`chrome.storage.local`, never synced), the `wrongPassphrase` state. Migration from an existing plaintext file: it reads as plaintext, and is written back encrypted on the next round through the `rewrite` flag (3.4).
 - Acceptance: an encrypted device and a plaintext device side by side break nothing (`engine.spec.ts`, "a browser with a passphrase beside one without"), and "wrong passphrase" shows as a state (`scheduler.spec.ts`).
 
-### Step 6: the sync-code relay (second backend)
+### Step 6: the sync-code relay (second backend) — done
 
 - Outline: a random seed the user carries as a sync code; HKDF derives the blob id (public) and the key (private). Cloudflare Workers with a Durable Object expose `/v1/blob/{id}` with the preconditions that give `SyncBackend` its compare-and-swap for real. A cap just under 2 MB, 60 requests per minute per id, deleted after 90 days unused. Uses the Step 5 codec, mandatory this time. The details, and where they differ from this outline, are in 3.5.
-- Landed in two parts: first the Worker (`relay/`), the fake that runs the same code in the extension's tests, the relay services (`src/services/sync/relay/`), the generalized key and envelope, and the engine's two-device tests through the relay; then the settings UI, the build variable and the documents, which close the step.
+- Landed in two parts: first the Worker (`relay/`), the fake that runs the same code in the extension's tests, the relay services (`src/services/sync/relay/`), the generalized key and envelope, and the engine's two-device tests through the relay; then the settings UI (three ways to connect on one card; a sync-code card that shows the code again, copies it, and disconnects with or without the notes on the relay), the `WXT_SYNC_RELAY_URL` build variable, and the documents — the privacy policy in particular, which now describes the one server the developer runs.
 - Acceptance: two browsers sharing a code converge through the relay the way they do through Drive (`engine.spec.ts`, "two devices through the relay"), an idle round is one HEAD, a mistyped code is refused rather than syncing into nothing, and a blob that is not encrypted is refused.
 
 ## 7. Test plan

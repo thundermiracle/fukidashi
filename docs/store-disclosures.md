@@ -24,15 +24,19 @@ the notes to the user's own Google Drive. Keep this in step with `PRIVACY.md`.
 
 ### Data usage
 
-Everything below is collected only after the user connects Google Drive, and
-goes to the user's own Google Drive — never to the developer.
+Everything below is collected only after the user switches syncing on. With
+Google Drive it goes to the user's own Google Drive and never to the
+developer. With a sync code it goes to a relay the developer runs on
+Cloudflare Workers — encrypted on the device with a key the relay never sees,
+so the relay holds ciphertext and an opaque id, plus what Cloudflare logs
+about a request. Both are described in the privacy policy.
 
 | Category | Answer |
 | --- | --- |
 | Web history | Yes: the URLs of the pages the user annotated |
 | Website content | Yes: the text the user highlighted, with a little surrounding text |
 | Personally identifiable information | Yes: the email address of the connected Google account, kept on the device to show which account is connected |
-| Authentication information | Yes: the Google sign-in token, kept on the device |
+| Authentication information | Yes: the Google sign-in token, or the sync code, kept on the device |
 | User activity, location, health, financial, personal communications | No |
 
 Certifications: not sold to third parties; not used or transferred for
@@ -45,8 +49,8 @@ Privacy policy URL: https://github.com/thundermiracle/fukidashi/blob/main/PRIVAC
 
 - The manifest declares `data_collection_permissions` with `required: ["none"]`
   and `optional: ["browsingActivity", "websiteContent"]`; AMO builds the
-  listing's data section from it. `connectDrive` asks for the two on Firefox
-  before signing in.
+  listing's data section from it. Connecting either way — Google Drive or a
+  sync code — asks for the two on Firefox first.
 - Privacy policy URL: the same as above.
 - The release workflow uploads the sources zip alongside the build.
 - Before submitting after a manifest change:
@@ -68,3 +72,12 @@ Privacy policy URL: https://github.com/thundermiracle/fukidashi/blob/main/PRIVAC
 - **Where the id goes**: `.env` for local builds (`WXT_GOOGLE_CLIENT_ID`, see
   `.env.example`) and the repository variable of the same name for the store
   builds. It is not a secret.
+
+## Cloudflare (the relay)
+
+- The sync-code relay is the Worker in `relay/`, deployed with `pnpm dlx wrangler deploy`
+  from that directory; its URL goes into the `WXT_SYNC_RELAY_URL` repository variable
+  (and `.env` for dev builds). `relay/README.md` has the protocol and the limits.
+- The privacy policy's sync-code section is what the store listings point at for it;
+  keep it in step with what the Worker keeps and for how long (90 days after the last
+  sync).
