@@ -61,9 +61,9 @@ pnpm run dev
 
 Connecting Google Drive needs an OAuth client id in `.env` (see
 `.env.example`), and syncing with a code needs the relay's address there too
-(`WXT_SYNC_RELAY_URL`; a fork deploys its own relay from `relay/`). The store
-builds get theirs from the `WXT_GOOGLE_CLIENT_ID` and `WXT_SYNC_RELAY_URL`
-repository variables.
+(`WXT_SYNC_RELAY_URL`; a fork deploys its own relay from `relay/`, and a build
+without one offers Google Drive alone). The store builds get theirs from the
+`WXT_GOOGLE_CLIENT_ID` and `WXT_SYNC_RELAY_URL` repository variables.
 
 ## Commands
 
