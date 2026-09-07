@@ -303,6 +303,25 @@ describe("an idle round's HEAD", () => {
     expect(reads).not.toContain("body");
   });
 
+  it("measures a blob written before the length was kept, and records it", async () => {
+    const { storage, reads } = countingStorage();
+    const service = new BlobService(storage, () => clock);
+    // What an earlier version of this Worker left behind: no length with the version.
+    await storage.put("blob", { version: 1, updatedAt: clock });
+    await storage.put("body", "the notes");
+
+    const first = await service.handle(new Request(url(), { method: "HEAD" }));
+    expect(first.status).toBe(200);
+    expect(first.headers.get("Content-Length")).toBe("9");
+    expect(reads).toContain("body");
+
+    // From then on it is as cheap as any other blob's.
+    reads.length = 0;
+    const second = await service.handle(new Request(url(), { method: "HEAD" }));
+    expect(second.headers.get("Content-Length")).toBe("9");
+    expect(reads).not.toContain("body");
+  });
+
   it("reads them for a GET, as it must", async () => {
     const { storage, reads } = countingStorage();
     const service = new BlobService(storage, () => clock);

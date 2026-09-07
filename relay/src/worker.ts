@@ -61,8 +61,12 @@ export interface BlobStorage {
 
 export interface StoredBlob {
   version: number;
-  /** How long the body is, kept here so a HEAD never has to read it. */
-  bytes: number;
+  /**
+   * How long the body is, kept here so a HEAD never has to read it. Absent
+   * on a blob an earlier version of this Worker wrote, which is why every
+   * reader has to be ready to measure the body itself.
+   */
+  bytes?: number;
   updatedAt: number;
 }
 
@@ -191,11 +195,21 @@ export class BlobService {
     if (sameTag(request.headers.get("If-None-Match"), etagOf(blob))) {
       return new Response(null, { status: 304, headers });
     }
-    headers.set("Content-Length", String(blob.bytes));
     // An idle round is a HEAD every fifteen minutes, and answering it costs
     // no more than the version: the body stays where it is.
-    if (headOnly) return new Response(null, { status: 200, headers });
-    return new Response((await this.storage.get<string>(BODY_KEY)) ?? "", { status: 200, headers });
+    if (headOnly && blob.bytes !== undefined) {
+      headers.set("Content-Length", String(blob.bytes));
+      return new Response(null, { status: 200, headers });
+    }
+
+    const body = (await this.storage.get<string>(BODY_KEY)) ?? "";
+    if (blob.bytes === undefined) {
+      // Written before the length was kept with the version: measure it once
+      // and record it, so this blob's next HEAD is as cheap as any other's.
+      await this.storage.put(BLOB_KEY, { ...blob, bytes: byteLength(body) });
+    }
+    headers.set("Content-Length", String(blob.bytes ?? byteLength(body)));
+    return new Response(headOnly ? null : body, { status: 200, headers });
   }
 
   private async write(request: Request): Promise<Response> {
