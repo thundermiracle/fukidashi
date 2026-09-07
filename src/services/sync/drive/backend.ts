@@ -1,6 +1,6 @@
-import { createSyncPayload, mergeSyncPages, purgeSyncPages } from "@/core";
+import { createSyncPayload, mergeSyncPages, purgeSyncPages, SyncVersionError } from "@/core";
 import { type SyncBackend, SyncConflictError } from "../backend";
-import { jsonCodec, type PayloadCodec } from "../codec";
+import { jsonCodec, type PayloadCodec, SyncPassphraseError } from "../codec";
 import { type DriveApi, DriveApiError, type DriveFile } from "./api";
 
 /** The one file the notes live in, inside the app folder nothing else can see. */
@@ -63,7 +63,8 @@ export async function readDriveCopy(api: DriveApi): Promise<string | null> {
  * If-Match, so `push` checks the version right before writing — the closest
  * it can get to the optimistic locking the engine expects. A write that
  * still went over another device's is caught afterwards through the file's
- * revisions, and redone with that device's notes taken in
+ * revisions, and redone with that device's notes taken in — or, when that
+ * device's copy is one this device cannot read, undone in its favour
  * (docs/sync-design.md, 3.3).
  */
 export function createDriveBackend(api: DriveApi, codec: PayloadCodec = jsonCodec): SyncBackend {
@@ -135,7 +136,21 @@ export function createDriveBackend(api: DriveApi, codec: PayloadCodec = jsonCode
         // went over its copy. That copy is still there as a revision: take it
         // in, and write the union in its place.
         for (const revisionId of missed) {
-          const theirs = await codec.decode(await api.readRevision(id, revisionId));
+          const text = await api.readRevision(id, revisionId);
+          let theirs: Awaited<ReturnType<PayloadCodec["decode"]>>;
+          try {
+            theirs = await codec.decode(text);
+          } catch (error) {
+            // A copy this device cannot read — encrypted with a passphrase it
+            // does not have, or written by a newer version — is the one that
+            // has to stand, not the write that went over it. Put it back as
+            // it was before saying so; the other device loses nothing, and
+            // this one keeps its notes until it can read the copy.
+            if (error instanceof SyncPassphraseError || error instanceof SyncVersionError) {
+              await api.update(id, text);
+            }
+            throw error;
+          }
           pages = mergeSyncPages(pages, theirs.payload.pages);
         }
         pages = purgeSyncPages(pages, payload.exportedAt);
