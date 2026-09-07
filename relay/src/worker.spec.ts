@@ -266,6 +266,58 @@ describe("the router", () => {
   });
 });
 
+describe("an idle round's HEAD", () => {
+  /** Storage that counts what was read, to see what a HEAD actually costs. */
+  function countingStorage() {
+    const store = new Map<string, unknown>();
+    const reads: string[] = [];
+    const storage: BlobStorage = {
+      async get<T>(key: string) {
+        reads.push(key);
+        return store.get(key) as T | undefined;
+      },
+      async put(key, value) {
+        store.set(key, value);
+      },
+      async delete(key) {
+        return store.delete(key);
+      },
+      async setAlarm() {},
+    };
+    return { storage, reads };
+  }
+
+  it("answers from the version alone, without reading the notes", async () => {
+    const { storage, reads } = countingStorage();
+    const service = new BlobService(storage, () => clock);
+    await service.handle(
+      new Request(url(), { method: "PUT", headers: { "If-None-Match": "*" }, body: "the notes" }),
+    );
+    reads.length = 0;
+
+    const head = await service.handle(new Request(url(), { method: "HEAD" }));
+
+    expect(head.status).toBe(200);
+    expect(head.headers.get("ETag")).toBe('"1"');
+    expect(head.headers.get("Content-Length")).toBe("9");
+    expect(reads).not.toContain("body");
+  });
+
+  it("reads them for a GET, as it must", async () => {
+    const { storage, reads } = countingStorage();
+    const service = new BlobService(storage, () => clock);
+    await service.handle(
+      new Request(url(), { method: "PUT", headers: { "If-None-Match": "*" }, body: "the notes" }),
+    );
+    reads.length = 0;
+
+    const read = await service.handle(new Request(url(), { method: "GET" }));
+
+    await expect(read.text()).resolves.toBe("the notes");
+    expect(reads).toContain("body");
+  });
+});
+
 describe("the Durable Object", () => {
   it("hands its requests and its alarm to the blob service", async () => {
     const store = new Map<string, unknown>();

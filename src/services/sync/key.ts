@@ -67,9 +67,22 @@ export function isSyncKeyKey(key: string): boolean {
   return key === SYNC_KEY_KEY;
 }
 
+/**
+ * Before a key could come from a sync code, the salt and the round count sat
+ * on the key itself rather than under `kdf`. Nothing released wrote that
+ * shape, but a browser that ran a build from between the two did — and the
+ * key is the only thing standing in for a passphrase already entered, so
+ * dropping it would leave that browser unable to read its own copy, or to
+ * take the encryption off again, without the passphrase.
+ */
+function toSyncKdf(value: Record<string, unknown>): SyncKdf | null {
+  if (value.kdf !== undefined) return readSyncKdf(value.kdf);
+  return readSyncKdf({ name: "PBKDF2-SHA256", salt: value.salt, iterations: value.iterations });
+}
+
 function toSyncKey(value: unknown): SyncKey | null {
   if (!isRecord(value)) return null;
-  const kdf = readSyncKdf(value.kdf);
+  const kdf = toSyncKdf(value);
   const { key } = value;
   return kdf && typeof key === "string" && key !== "" ? { kdf, key } : null;
 }

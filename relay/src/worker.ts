@@ -61,6 +61,8 @@ export interface BlobStorage {
 
 export interface StoredBlob {
   version: number;
+  /** How long the body is, kept here so a HEAD never has to read it. */
+  bytes: number;
   updatedAt: number;
 }
 
@@ -189,9 +191,11 @@ export class BlobService {
     if (sameTag(request.headers.get("If-None-Match"), etagOf(blob))) {
       return new Response(null, { status: 304, headers });
     }
-    const body = (await this.storage.get<string>(BODY_KEY)) ?? "";
-    headers.set("Content-Length", String(byteLength(body)));
-    return new Response(headOnly ? null : body, { status: 200, headers });
+    headers.set("Content-Length", String(blob.bytes));
+    // An idle round is a HEAD every fifteen minutes, and answering it costs
+    // no more than the version: the body stays where it is.
+    if (headOnly) return new Response(null, { status: 200, headers });
+    return new Response((await this.storage.get<string>(BODY_KEY)) ?? "", { status: 200, headers });
   }
 
   private async write(request: Request): Promise<Response> {
@@ -216,7 +220,11 @@ export class BlobService {
       return problem(428, "PUT needs If-Match, or If-None-Match: * to create.");
     }
 
-    const written: StoredBlob = { version: (current?.version ?? 0) + 1, updatedAt: this.now() };
+    const written: StoredBlob = {
+      version: (current?.version ?? 0) + 1,
+      bytes: byteLength(body),
+      updatedAt: this.now(),
+    };
     await this.storage.put(BODY_KEY, body);
     await this.storage.put(BLOB_KEY, written);
     await this.touch(true);
