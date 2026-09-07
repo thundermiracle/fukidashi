@@ -53,6 +53,16 @@ describe("the sync key", () => {
     expect(seen).toEqual([KEY, null]);
   });
 
+  it("still reads a key an earlier build wrote with the salt on the key itself", async () => {
+    await storage.chrome.storage.local.set({
+      [SYNC_KEY_KEY]: { salt: "c2FsdA==", iterations: 1_000, key: "a2V5" },
+    });
+
+    // Dropping it would leave that browser unable to read its own copy, or to
+    // take the encryption off, without the passphrase all over again.
+    await expect(loadSyncKey()).resolves.toEqual(KEY);
+  });
+
   it("keeps a key derived from a sync code as well", async () => {
     const fromCode = { kdf: { name: "HKDF-SHA256" as const }, key: "a2V5" };
     await saveSyncKey(fromCode);

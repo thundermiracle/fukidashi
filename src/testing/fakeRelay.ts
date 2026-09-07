@@ -87,7 +87,11 @@ export function createFakeRelay(options: FakeRelayOptions = {}) {
       storeFor(id).has(BLOB_KEY) ? (storeFor(id).get(BODY_KEY) as string) : undefined,
     /** Plants a blob, the way another browser would have left it. */
     plant: (id: string, body: string) => {
-      const blob: StoredBlob = { version: 1, updatedAt: now() };
+      const blob: StoredBlob = {
+        version: 1,
+        bytes: new TextEncoder().encode(body).length,
+        updatedAt: now(),
+      };
       storeFor(id).set(BLOB_KEY, blob);
       storeFor(id).set(BODY_KEY, body);
     },
