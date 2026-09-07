@@ -173,6 +173,37 @@ describe("createDriveBackend", () => {
     expect(read?.payload.pages[0].notes.map((note) => note.id)).toEqual(["a", "b", "c"]);
   });
 
+  it("puts back a copy it cannot read, rather than leaving its own write over it", async () => {
+    const key = await deriveSyncKey("correct horse", randomSalt(), 1_000);
+    const laptop = createDriveBackend(
+      createApi(),
+      createSyncCodec({ read: async () => key, write: async () => key }),
+    );
+    const desktopApi = createApi();
+    // The laptop, which encrypts, writes between the desktop's check and its
+    // write; the desktop has no passphrase.
+    const racing: DriveApi = {
+      ...desktopApi,
+      async get(id) {
+        const current = await desktopApi.get(id);
+        await laptop.push(payloadWith("a", "b"), "file-1:1");
+        return current;
+      },
+    };
+    const desktop: SyncBackend = createDriveBackend(racing);
+    await desktop.push(payloadWith("a"), null);
+
+    await expect(desktop.push(payloadWith("a", "c"), "file-1:1")).rejects.toThrow(
+      SyncPassphraseError,
+    );
+
+    // The copy is the laptop's encrypted one again, with its notes intact;
+    // the desktop's note stays on the desktop until it can read the copy.
+    expect(readEnvelopeIfAny(drive.content(DRIVE_FILE_NAME) ?? "")).not.toBeNull();
+    const read = await laptop.pull();
+    expect(read?.payload.pages[0].notes.map((note) => note.id)).toEqual(["a", "b"]);
+  });
+
   it("reads a plaintext copy with a passphrase set, asks for it back, and writes it encrypted", async () => {
     const key = await deriveSyncKey("correct horse", randomSalt(), 1_000);
     const codec = createSyncCodec({ read: async () => key, write: async () => key });
