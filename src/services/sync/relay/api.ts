@@ -76,7 +76,11 @@ export function createRelayApi(
   const versionOf = (response: Response): string => {
     const etag = response.headers.get("ETag");
     if (!etag) throw new RelayApiError(response.status, "The relay named no version.");
-    return etag;
+    // A proxy that compresses the answer marks the tag it passes on as weak.
+    // It still names the version the relay wrote, and a HEAD — with no body
+    // to compress — gives the same one unmarked, so the `W/` goes: otherwise
+    // one round's version would never match the next one's.
+    return etag.replace(/^W\//, "");
   };
 
   return {

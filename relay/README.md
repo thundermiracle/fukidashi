@@ -30,6 +30,10 @@ no-store`:
 
 Beyond the rate: 429 with `Retry-After`.
 
+ETags are version counters. A proxy in front of the Worker may hand the
+browser a weakened tag (`W/"3"`) when it compresses an answer, so both sides
+compare tags with that marker ignored.
+
 ## Deploying your own
 
 The extension is given the relay's address at build time through
