@@ -1,23 +1,64 @@
 /**
- * The key the notes are encrypted with before they leave this device, once
- * the user has set a passphrase. It is derived from the passphrase and kept
- * per device, never synced: every browser is given the passphrase on its
- * own. The passphrase itself is not kept — the key stands in for it here,
+ * How a key was derived, in enough detail for another browser holding the
+ * same secret to derive it again. Every envelope carries it with the
+ * ciphertext (see codec.ts).
+ */
+export type SyncKdf =
+  /** From a passphrase: the salt and the round count, both public. */
+  | { name: "PBKDF2-SHA256"; salt: string; iterations: number }
+  /** From a sync code, the way relay/code.ts does it; nothing to carry. */
+  | { name: "HKDF-SHA256" };
+
+/**
+ * The key the notes are encrypted with before they leave this device. It is
+ * derived from a secret the user holds — a passphrase, or a sync code — and
+ * kept per device, never synced: every browser is given the secret on its
+ * own. The passphrase itself is not kept; the key stands in for it here,
  * and cannot be turned back into it.
  */
 export interface SyncKey {
-  /**
-   * The 16 bytes the key was derived with, base64. Every envelope carries
-   * them, so a browser given the same passphrase derives the same key.
-   */
-  salt: string;
-  /**
-   * How many PBKDF2 rounds the key took. Written into every envelope with
-   * the salt, so another browser derives the key the same way.
-   */
-  iterations: number;
+  kdf: SyncKdf;
   /** The 256-bit AES key, base64. */
   key: string;
+}
+
+/** OWASP's 2023 figure for PBKDF2-HMAC-SHA256; about half a second on a laptop. */
+export const PBKDF2_ITERATIONS = 600_000;
+/**
+ * The most an envelope may ask for. The count is read from the copy when a
+ * passphrase is set, and a copy that asked for billions would keep the
+ * settings page busy for hours.
+ */
+export const MAX_PBKDF2_ITERATIONS = 10_000_000;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+/** Reads a derivation description back, or null for one this version cannot use. */
+export function readSyncKdf(value: unknown): SyncKdf | null {
+  if (!isRecord(value)) return null;
+  if (value.name === "HKDF-SHA256") return { name: "HKDF-SHA256" };
+  if (value.name !== "PBKDF2-SHA256") return null;
+
+  const { salt, iterations } = value;
+  if (typeof salt !== "string" || salt === "") return null;
+  if (
+    typeof iterations !== "number" ||
+    !Number.isInteger(iterations) ||
+    iterations < 1 ||
+    iterations > MAX_PBKDF2_ITERATIONS
+  ) {
+    return null;
+  }
+  return { name: "PBKDF2-SHA256", salt, iterations };
+}
+
+export function sameSyncKdf(a: SyncKdf, b: SyncKdf): boolean {
+  if (a.name === "PBKDF2-SHA256") {
+    return b.name === "PBKDF2-SHA256" && a.salt === b.salt && a.iterations === b.iterations;
+  }
+  return b.name === a.name;
 }
 
 export const SYNC_KEY_KEY = "fukidashi:sync:key";
@@ -27,16 +68,10 @@ export function isSyncKeyKey(key: string): boolean {
 }
 
 function toSyncKey(value: unknown): SyncKey | null {
-  if (typeof value !== "object" || value === null) return null;
-  const { salt, iterations, key } = value as Partial<SyncKey>;
-  return typeof salt === "string" &&
-    salt !== "" &&
-    Number.isInteger(iterations) &&
-    (iterations as number) > 0 &&
-    typeof key === "string" &&
-    key !== ""
-    ? { salt, iterations: iterations as number, key }
-    : null;
+  if (!isRecord(value)) return null;
+  const kdf = readSyncKdf(value.kdf);
+  const { key } = value;
+  return kdf && typeof key === "string" && key !== "" ? { kdf, key } : null;
 }
 
 export async function loadSyncKey(): Promise<SyncKey | null> {

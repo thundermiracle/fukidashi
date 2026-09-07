@@ -111,7 +111,11 @@ describe("the encrypting codec", () => {
 
   it("refuses an envelope whose key took another number of rounds", async () => {
     const text = await encrypting().encode(payload);
-    const sameWordsOtherRounds = await deriveSyncKey("correct horse", key.salt, ITERATIONS + 1);
+    const sameWordsOtherRounds = await deriveSyncKey(
+      "correct horse",
+      key.kdf.name === "PBKDF2-SHA256" ? key.kdf.salt : "",
+      ITERATIONS + 1,
+    );
 
     await expect(encrypting(sameWordsOtherRounds).decode(text)).rejects.toThrow(
       SyncPassphraseError,
@@ -152,9 +156,8 @@ describe("the encrypting codec", () => {
     const text = await encrypting().encode(payload);
 
     expect(text).not.toContain("correct horse");
-    expect(readEnvelopeIfAny(text)).toMatchObject({
-      kdf: { iterations: ITERATIONS, salt: key.salt },
-    });
+    expect(readEnvelopeIfAny(text)).toMatchObject({ kdf: key.kdf });
+    expect(key.kdf).toMatchObject({ name: "PBKDF2-SHA256", iterations: ITERATIONS });
   });
 });
 
@@ -185,6 +188,27 @@ describe("readEnvelopeIfAny", () => {
 
   it("refuses text that is not JSON", () => {
     expect(() => readEnvelopeIfAny("not json")).toThrow(SyncPayloadError);
+  });
+});
+
+describe("a codec that allows nothing plain", () => {
+  it("refuses a plaintext copy, and refuses to write one when it has no key", async () => {
+    const withKey = createSyncCodec(
+      { read: async () => key, write: async () => key },
+      { allowPlaintext: false },
+    );
+    const withoutKey = createSyncCodec(
+      { read: async () => null, write: async () => null },
+      { allowPlaintext: false },
+    );
+
+    await expect(withKey.decode(JSON.stringify(payload))).rejects.toThrow(SyncPayloadError);
+    await expect(withoutKey.encode(payload)).rejects.toThrow(SyncPassphraseError);
+    // With a key it is the ordinary encrypting codec.
+    await expect(withKey.decode(await withKey.encode(payload))).resolves.toEqual({
+      payload,
+      rewrite: false,
+    });
   });
 });
 

@@ -27,11 +27,18 @@
   every call from `fukidashi:sync:key` (`key.ts`; derived from the passphrase with
   PBKDF2-SHA256, 600k rounds, never synced). It reads both forms while it has a key and
   flags a plaintext copy for a rewrite, which is how a passphrase takes effect without an
-  edit; a copy it cannot open is the `wrongPassphrase` state. The design is in
-  `docs/sync-design.md`.
+  edit; a copy it cannot open is the `wrongPassphrase` state. `src/services/sync/relay/`
+  holds the second backend, the sync-code relay: `code.ts` (the 24-character code and the
+  blob id and key HKDF derives from it), `store.ts` (the code kept on the device), `api.ts`
+  (the relay's few calls; versions are its ETags), `backend.ts` (the `SyncBackend`, with the
+  If-Match Drive lacks) and `connection.ts` (creating a code, which claims the blob at once;
+  joining with one, which refuses a code that names nothing; disconnecting). The relay
+  codec refuses a blob that is not an envelope. The relay itself is a Cloudflare Worker in
+  `relay/` (see `relay/README.md`); its blob logic runs unchanged in the extension's tests
+  through `src/testing/fakeRelay.ts`. The design is in `docs/sync-design.md`.
 - `src/testing/` holds test helpers: fakes for `chrome.storage`, `chrome.alarms`,
-  `chrome.identity`, the runtime's start-up events, the sync backend and Google Drive
-  (behind a `fetch` of its own), and the Vitest setup file that fills in `Range.getBoundingClientRect` and
+  `chrome.identity`, the runtime's start-up events, the sync backend, Google Drive and the
+  relay (each behind a `fetch` of its own), and the Vitest setup file that fills in `Range.getBoundingClientRect` and
   `Element.scrollIntoView`, which jsdom does not implement.
 - `src/assets/` stores assets imported from code; `public/` stores files copied as-is
   (`public/icon/*.png` is picked up by WXT as the extension icon).

@@ -6,6 +6,7 @@ import {
   deriveSyncKey,
   randomSalt,
   readEnvelopeIfAny,
+  SyncPassphraseError,
 } from "../codec";
 import { syncOnce } from "../engine";
 import { loadSyncKey, type SyncKey, saveSyncKey } from "../key";
@@ -37,6 +38,9 @@ export async function setSyncPassphrase(
 
   let key: SyncKey;
   if (envelope) {
+    if (envelope.kdf.name !== "PBKDF2-SHA256") {
+      throw new SyncPassphraseError("The copy in Drive was not encrypted with a passphrase.");
+    }
     key = await deriveSyncKey(passphrase, envelope.kdf.salt, envelope.kdf.iterations);
     await decryptEnvelope(envelope, key);
   } else {

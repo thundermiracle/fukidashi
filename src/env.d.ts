@@ -4,4 +4,6 @@ interface ImportMetaEnv {
   readonly WXT_GOOGLE_CLIENT_ID?: string;
   /** The store build's public key, so a dev build gets the same extension id. */
   readonly WXT_EXTENSION_KEY?: string;
+  /** Where the sync-code relay answers, e.g. `https://fukidashi-relay.example.workers.dev`. */
+  readonly WXT_SYNC_RELAY_URL?: string;
 }

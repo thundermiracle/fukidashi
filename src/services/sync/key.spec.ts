@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createFakeChromeStorage } from "@/testing/fakeChromeStorage";
-import { loadSyncKey, SYNC_KEY_KEY, saveSyncKey, watchSyncKey } from "./key";
+import { loadSyncKey, SYNC_KEY_KEY, type SyncKey, saveSyncKey, watchSyncKey } from "./key";
 
-const KEY = { salt: "c2FsdA==", iterations: 1_000, key: "a2V5" };
+const KEY: SyncKey = {
+  kdf: { name: "PBKDF2-SHA256", salt: "c2FsdA==", iterations: 1_000 },
+  key: "a2V5",
+};
 
 let storage: ReturnType<typeof createFakeChromeStorage>;
 
@@ -32,7 +35,9 @@ describe("the sync key", () => {
     await storage.chrome.storage.local.set({ [SYNC_KEY_KEY]: { salt: "", key: 42 } });
     await expect(loadSyncKey()).resolves.toBeNull();
 
-    await storage.chrome.storage.local.set({ [SYNC_KEY_KEY]: { ...KEY, iterations: 0 } });
+    await storage.chrome.storage.local.set({
+      [SYNC_KEY_KEY]: { ...KEY, kdf: { ...KEY.kdf, iterations: 0 } },
+    });
     await expect(loadSyncKey()).resolves.toBeNull();
   });
 
@@ -46,5 +51,12 @@ describe("the sync key", () => {
     await saveSyncKey(KEY);
 
     expect(seen).toEqual([KEY, null]);
+  });
+
+  it("keeps a key derived from a sync code as well", async () => {
+    const fromCode = { kdf: { name: "HKDF-SHA256" as const }, key: "a2V5" };
+    await saveSyncKey(fromCode);
+
+    await expect(loadSyncKey()).resolves.toEqual(fromCode);
   });
 });
