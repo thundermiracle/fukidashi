@@ -78,6 +78,17 @@ function etagOf(blob: StoredBlob): string {
   return `"${blob.version}"`;
 }
 
+/**
+ * An ETag as it comes back, without the `W/` that marks a weak one. A proxy
+ * that changes only how a body is carried — Cloudflare compressing this
+ * JSON, say — weakens the tag it passes on, and the browser then sends that
+ * weakened tag back. The entity it names is the same one, so the version it
+ * carries is compared the same way.
+ */
+function sameTag(a: string | null, b: string): boolean {
+  return a !== null && a.replace(/^W\//, "") === b.replace(/^W\//, "");
+}
+
 function withCors(headers: Record<string, string> = {}): Headers {
   return new Headers({ ...CORS_HEADERS, "Cache-Control": "no-store", ...headers });
 }
@@ -175,7 +186,7 @@ export class BlobService {
     await this.touch();
 
     const headers = withCors({ ETag: etagOf(blob), "Content-Type": "application/json" });
-    if (request.headers.get("If-None-Match") === etagOf(blob)) {
+    if (sameTag(request.headers.get("If-None-Match"), etagOf(blob))) {
       return new Response(null, { status: 304, headers });
     }
     const body = (await this.storage.get<string>(BODY_KEY)) ?? "";
@@ -198,7 +209,7 @@ export class BlobService {
     if (ifNoneMatch === "*") {
       if (current) return problem(412, "A blob already exists under this id.");
     } else if (ifMatch !== null) {
-      if (!current || ifMatch !== etagOf(current)) {
+      if (!current || !sameTag(ifMatch, etagOf(current))) {
         return problem(412, "The blob changed since it was read.");
       }
     } else {
@@ -218,7 +229,7 @@ export class BlobService {
   private async remove(request: Request): Promise<Response> {
     const current = await this.storage.get<StoredBlob>(BLOB_KEY);
     const ifMatch = request.headers.get("If-Match");
-    if (current && ifMatch !== null && ifMatch !== etagOf(current)) {
+    if (current && ifMatch !== null && !sameTag(ifMatch, etagOf(current))) {
       return problem(412, "The blob changed since it was read.");
     }
     await this.storage.delete(BLOB_KEY);

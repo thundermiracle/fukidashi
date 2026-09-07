@@ -114,6 +114,23 @@ describe("a blob on the relay", () => {
     expect(relay.content(ID)).toBe("one");
   });
 
+  it("knows a weakened tag for the version it names", async () => {
+    await create("one");
+
+    // A proxy that compressed the answer hands the browser `W/"1"`, and the
+    // browser sends that back; it still names the version the relay wrote.
+    const unchanged = await call({ method: "GET", headers: { "If-None-Match": 'W/"1"' } });
+    expect(unchanged.status).toBe(304);
+
+    const written = await call({ method: "PUT", headers: { "If-Match": 'W/"1"' }, body: "two" });
+    expect(written.status).toBe(200);
+    expect(relay.content(ID)).toBe("two");
+
+    // Another version is refused, weakened or not.
+    const stale = await call({ method: "PUT", headers: { "If-Match": 'W/"1"' }, body: "three" });
+    expect(stale.status).toBe(412);
+  });
+
   it("takes sixty requests a minute, then asks for a pause", async () => {
     for (let i = 0; i < RATE_LIMIT_REQUESTS; i++) {
       expect((await call({ method: "HEAD" })).status).toBe(404);

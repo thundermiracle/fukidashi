@@ -51,6 +51,52 @@ beforeEach(() => {
   relay = createFakeRelay();
 });
 
+describe("a relay behind a proxy that weakens its ETags", () => {
+  /**
+   * Cloudflare compresses a JSON answer, and marks the tag it passes on as
+   * weak; a HEAD has no body to compress, so its tag comes through as the
+   * relay wrote it. The two have to name the same version all the same.
+   */
+  function weakened() {
+    const fetchImpl: typeof fetch = async (input, init) => {
+      const response = await relay.fetch(input, init);
+      const etag = response.headers.get("ETag");
+      if (etag === null || new Request(input, init).method === "HEAD") return response;
+      const headers = new Headers(response.headers);
+      headers.set("ETag", `W/${etag}`);
+      return new Response(response.body, { status: response.status, headers });
+    };
+    const codec = createSyncCodec(
+      { read: async () => KEY, write: async () => KEY },
+      { allowPlaintext: false },
+    );
+    return createRelayBackend(
+      createRelayApi({ baseUrl: relay.baseUrl }, fetchImpl),
+      BLOB_ID,
+      codec,
+    );
+  }
+
+  it("reads one version from a pull and a peek, and writes over it", async () => {
+    const backend = weakened();
+    await backend.push(payload("one"), null);
+
+    const read = await backend.pull();
+    expect(read?.version).toBe(await backend.peek?.());
+
+    await expect(backend.push(payload("two"), read?.version ?? null)).resolves.toBeDefined();
+    await expect(backend.pull()).resolves.toMatchObject({ payload: payload("two") });
+  });
+
+  it("still refuses to write over a version it did not read", async () => {
+    const backend = weakened();
+    await backend.push(payload("one"), null);
+    await backend.push(payload("two"), '"1"');
+
+    await expect(backend.push(payload("three"), '"1"')).rejects.toThrow(SyncConflictError);
+  });
+});
+
 describe("createRelayBackend", () => {
   it("finds nothing on a fresh relay", async () => {
     await expect(backend().pull()).resolves.toBeNull();
