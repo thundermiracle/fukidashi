@@ -599,15 +599,14 @@ describe("syncing with a code", () => {
     expect(relay.content(blobId)).toBeDefined();
   });
 
-  it("cannot create a code from a build without a relay address", async () => {
+  it("offers nothing of the kind in a build without a relay address", async () => {
     vi.stubEnv("WXT_SYNC_RELAY_URL", "");
     await renderPage();
 
-    await click(buttonLabelled("Create a sync code"));
-    await waitForOutcome();
-
-    expect(syncOutcome()).toContain("relay address");
-    await expect(loadSyncConfig()).resolves.toBeNull();
+    expect(syncCard().textContent).not.toContain("sync code");
+    expect(() => buttonLabelled("Create a sync code")).toThrow();
+    // Google Drive is still offered, on its own.
+    expect(buttonLabelled("Connect Google Drive")).toBeDefined();
   });
 
   it("joins with a code from another browser, however it was typed", async () => {

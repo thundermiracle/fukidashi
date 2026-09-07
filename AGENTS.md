@@ -120,9 +120,10 @@
 - `.env` (see `.env.example`) carries three build-time values: `WXT_GOOGLE_CLIENT_ID`, the
   OAuth client the Drive sync signs in with; `WXT_EXTENSION_KEY`, the store build's public
   key, which gives a Chrome dev build the store build's extension id so the OAuth redirect
-  URI matches; and `WXT_SYNC_RELAY_URL`, where the sync-code relay answers. None is a secret;
-  a fork should use a client and a relay of its own (the relay is deployed from `relay/`
-  with `pnpm dlx wrangler deploy`, see `relay/README.md`).
+  URI matches; and `WXT_SYNC_RELAY_URL`, where the sync-code relay answers — left empty, the settings
+  page offers Google Drive alone. None is a secret; a fork should use a client and a relay
+  of its own (the relay is deployed from `relay/` with `pnpm dlx wrangler deploy`, see
+  `relay/README.md`).
 - Keep logic in `src/core/` pure and side-effect free for easier review.
 - `pnpm-workspace.yaml` lists the only dependencies allowed to run install scripts
   (`allowBuilds`); add an entry deliberately rather than approving everything.

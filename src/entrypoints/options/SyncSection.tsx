@@ -105,6 +105,8 @@ export function SyncSection() {
   const [codeShown, setCodeShown] = useState(false);
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
+  /** Whether this build was told where the relay answers; without it there is nothing to offer. */
+  const hasRelay = Boolean(import.meta.env.WXT_SYNC_RELAY_URL);
 
   useEffect(() => {
     loadSyncConfig().then(setConfig);
@@ -308,6 +310,26 @@ export function SyncSection() {
   );
 
   if (!config) {
+    // A build with no relay address cannot sync with a code at all, so it is
+    // not offered: a fork that runs no relay of its own shows the Drive half
+    // alone, rather than a button that always refuses.
+    if (!hasRelay) {
+      return (
+        <section className="fk-card">
+          <h3 className="fk-card__title">Keep your notes on every browser</h3>
+          <p className="fk-card__body">
+            Connect Google Drive and the notes you write here turn up in every other browser you
+            connect, edits and deletions included. They go to a hidden folder in your own Google
+            Drive that only Fukidashi can read — there is no server of ours in between.
+          </p>
+          <button type="button" className="fk-button" disabled={busy} onClick={handleConnect}>
+            Connect Google Drive
+          </button>
+          {outcomeLine}
+        </section>
+      );
+    }
+
     return (
       <section className="fk-card">
         <h3 className="fk-card__title">Keep your notes on every browser</h3>
