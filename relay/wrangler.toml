@@ -1,0 +1,15 @@
+# The sync-code relay: one Worker, one Durable Object class, nothing else.
+# Deploy with `pnpm dlx wrangler deploy` from this directory (see README.md).
+name = "fukidashi-relay"
+main = "src/worker.ts"
+compatibility_date = "2026-06-01"
+
+[[durable_objects.bindings]]
+name = "SYNC_BLOB"
+class_name = "SyncBlob"
+
+# SQLite-backed objects: the storage backend Cloudflare recommends for new
+# classes, and the one the free plan offers.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["SyncBlob"]

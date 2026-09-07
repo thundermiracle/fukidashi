@@ -6,10 +6,11 @@ import { createFakeChromeStorage } from "@/testing/fakeChromeStorage";
 import { createFakeDrive } from "@/testing/fakeDrive";
 import { SyncSignedOutError } from "../backend";
 import { loadSyncConfig, saveSyncConfig } from "../config";
+import { DataCollectionRefusedError } from "../dataCollection";
 import { loadSyncKey, saveSyncKey } from "../key";
 import { loadDriveToken, saveDriveToken } from "./auth";
 import { DRIVE_FILE_NAME } from "./backend";
-import { connectDrive, DataCollectionRefusedError, disconnectDrive } from "./connection";
+import { connectDrive, disconnectDrive } from "./connection";
 
 const HOUR = 3_600_000;
 
@@ -169,7 +170,10 @@ describe("disconnectDrive", () => {
 
   it("forgets the passphrase along with the token", async () => {
     await connectedEarlier();
-    await saveSyncKey({ salt: "c2FsdA==", iterations: 1_000, key: "a2V5" });
+    await saveSyncKey({
+      kdf: { name: "PBKDF2-SHA256", salt: "c2FsdA==", iterations: 1_000 },
+      key: "a2V5",
+    });
 
     await disconnectDrive({ deleteRemoteCopy: false });
 

@@ -132,9 +132,18 @@ describe("setSyncPassphrase", () => {
     await setSyncPassphrase("correct horse");
 
     const written = await storedKeyCodec.encode(theirs);
-    expect(readEnvelopeIfAny(written)).toMatchObject({
-      kdf: { iterations: ITERATIONS, salt: key.salt },
-    });
+    expect(readEnvelopeIfAny(written)).toMatchObject({ kdf: key.kdf });
+    expect(key.kdf).toMatchObject({ name: "PBKDF2-SHA256", iterations: ITERATIONS });
+  });
+
+  it("refuses a copy that was not encrypted with a passphrase", async () => {
+    await connectedEarlier();
+    const fromCode = { kdf: { name: "HKDF-SHA256" as const }, key: btoa("k".repeat(32)) };
+    drive.plant(DRIVE_FILE_NAME, await encryptPayload(theirs, fromCode));
+
+    await expect(setSyncPassphrase("correct horse")).rejects.toThrow(SyncPassphraseError);
+
+    await expect(loadSyncKey()).resolves.toBeNull();
   });
 
   it("refuses a passphrase that does not open the copy, and keeps nothing", async () => {

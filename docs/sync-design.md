@@ -82,6 +82,16 @@ Drive ships first because it runs itself, and because the privacy policy can kee
 - The codec reads both forms while it has a key, so a device without the passphrase and one with it share a copy without breaking anything: whatever the plain device pushes is taken in and written back encrypted, and the plain device then shows `wrongPassphrase` — its own notes and the copy untouched — until it is given the passphrase. Encryption is therefore sticky: removing the passphrase on one device rewrites the copy as plaintext (one round with a codec that still opens it but writes plain), but any device that still has it encrypts the copy again on its next round. Disconnecting forgets the key along with the token.
 - Optional on Drive (a forgotten passphrase means no more sync, which is a real UX cost, and nobody can recover it). Mandatory for the relay.
 
+### 3.5 The sync-code relay
+
+- **The code.** 15 random bytes, shown as 24 characters of Crockford's base32 in six groups of four (`XXXX-XXXX-XXXX-XXXX-XXXX-XXXX`). The alphabet has no I, L, O or U, and a typed i, l or o still decodes; case and dashes do not matter. The outline said 16 bytes; 15 is what divides evenly into base32, and 120 bits is not the weak link.
+- **What is derived from it.** HKDF-SHA256 with an empty salt and two `info` strings: `fukidashi-sync/blob-id` gives the 128-bit blob id (hex, public — all the relay ever sees) and `fukidashi-sync/key` the 256-bit AES key. Neither leads back to the code, and the id gives no way to the key. The key is a `SyncKey` with `kdf: { name: "HKDF-SHA256" }`, so the envelope from 3.4 carries it as it does a passphrase key.
+- **The relay** (`relay/`): one Cloudflare Worker routing `/v1/blob/{id}` to a Durable Object per id, SQLite-backed. `GET` (with `If-None-Match` → 304), `HEAD` (the version alone — what an idle round costs), `PUT` (`If-None-Match: *` to create, `If-Match` to write over that version; 412 otherwise, 428 without a precondition, 413 over the cap) and `DELETE`. The cap is 1.9 MB rather than the outline's 2 MB: Cloudflare allows 2 MB for a key and its value together, and the body is stored as one value, apart from the version. The outline had only GET and PUT; HEAD is what `peek` needs, DELETE what "disconnect and delete the copy" needs. ETags are quoted version counters; the extension treats them as opaque. 60 requests per minute per id, then 429 with `Retry-After`, which the scheduler's backoff absorbs. Every request resets a 90-day retention alarm; the alarm deletes a blob nobody touched. Every response carries CORS headers for `*` and `Cache-Control: no-store` — which answers the `host_permissions` open point for the relay: none needed.
+- **Claim on create, verify on join.** The engine never pushes when both sides are empty, so a code created on a browser with no notes would leave nothing for a second browser to find. Creating a code therefore claims the blob at once with an encrypted empty payload (`If-None-Match: *`). Joining with a code HEADs the blob first and refuses a 404 as a probable typo, rather than quietly starting a second, empty set of notes under the mistyped code. That is the typo defence; the code carries no checksum.
+- **Always encrypted.** The relay codec refuses a blob that is not an envelope, and refuses to write one when it has no key: nothing on the relay was ever plain, and the id is the only access control, so unauthenticated JSON is not to be trusted with the notes. A blob under another code's key reads as `wrongPassphrase`, the same state as on Drive.
+- **What the id buys an attacker.** Not the notes: the key is not derivable from the id, and the blob is ciphertext. It buys deletion and overwriting (a HEAD hands out the ETag `If-Match` wants). A deleted blob comes back from the next device to sync, which finds nothing and pushes its own copy. An overwritten one is refused by every device — plaintext as not encrypted, another key's envelope as `wrongPassphrase` — and the notes stay where they are until the user creates a new code; a nuisance, not a loss. The id is 128 bits from HKDF, so guessing is not a route; the risk is the id leaking from the relay's logs or from a request in flight, which is why the relay is the developer's and TLS-only.
+- **What the operator sees.** The blob id, ciphertext, and what Cloudflare logs about a request (IP address, timing). The privacy policy says so, and that the relay is the developer's. A fork deploys its own (`relay/README.md`) and points the build at it through `WXT_SYNC_RELAY_URL`.
+
 ### 3.5 The format contract
 
 `readNote` rebuilds each object, so an older extension that pushes a newer payload back drops the fields it does not know. The rule, written down:
@@ -109,6 +119,8 @@ popup footer ◀── watchSyncStatus ── fukidashi:sync-status
 | `src/services/sync/codec.ts` | `PayloadCodec`, the envelope, key derivation, and the one codec — plain or encrypting by its keys | new |
 | `src/services/sync/key.ts` | the passphrase-derived key kept on the device | new |
 | `src/services/sync/drive/passphrase.ts` | setting and removing the passphrase, as the settings page does it | new |
+| `src/services/sync/relay/` | the sync-code relay backend: the code and what HKDF derives from it, the few calls, the backend, connecting and disconnecting | new |
+| `relay/` | the relay itself: a Cloudflare Worker and its Durable Object, deployed on its own | new |
 | `src/services/sync/config.ts` | `SyncConfig` (`{ backend: "drive" }` or absent): load / save / watch | new |
 | `src/services/sync/configured.ts` | `loadSyncBackend()` becomes async and builds the backend from the config | changed |
 | `src/services/sync/scheduler.ts` | Synchronous listener registration, config watching, lazy backend resolution, alarm guard, backoff, skipping while `signedOut`, `sync-now` | changed |
@@ -237,8 +249,9 @@ Dependencies: 0 → 1 → 2 → 3. Steps 4 and 5 follow 2 and are independent of
 
 ### Step 6: the sync-code relay (second backend)
 
-- Outline: 16 random bytes as the seed; HKDF derives the blob id (public) and the key (private). Cloudflare Workers with a Durable Object expose only `GET /v1/blob/{id}` (`If-None-Match`) and `PUT /v1/blob/{id}` (`If-Match`). 2 MB cap, 60 requests per minute per id, deleted after 90 days unused. Fits `SyncBackend` as is and uses the Step 5 codec, mandatory this time.
-- Not started in this stage.
+- Outline: a random seed the user carries as a sync code; HKDF derives the blob id (public) and the key (private). Cloudflare Workers with a Durable Object expose `/v1/blob/{id}` with the preconditions that give `SyncBackend` its compare-and-swap for real. A cap just under 2 MB, 60 requests per minute per id, deleted after 90 days unused. Uses the Step 5 codec, mandatory this time. The details, and where they differ from this outline, are in 3.5.
+- Landed in two parts: first the Worker (`relay/`), the fake that runs the same code in the extension's tests, the relay services (`src/services/sync/relay/`), the generalized key and envelope, and the engine's two-device tests through the relay; then the settings UI, the build variable and the documents, which close the step.
+- Acceptance: two browsers sharing a code converge through the relay the way they do through Drive (`engine.spec.ts`, "two devices through the relay"), an idle round is one HEAD, a mistyped code is refused rather than syncing into nothing, and a blob that is not encrypted is refused.
 
 ## 7. Test plan
 

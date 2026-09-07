@@ -1,5 +1,6 @@
 import { parseSyncPayload, type SyncPayload, SyncPayloadError, SyncVersionError } from "@/core";
-import type { SyncKey } from "./key";
+import { fromBase64, toBase64, utf8 } from "./bytes";
+import { PBKDF2_ITERATIONS, readSyncKdf, type SyncKdf, type SyncKey, sameSyncKdf } from "./key";
 
 /** What a codec read, and whether it would have written it that way. */
 export interface DecodedPayload {
@@ -38,55 +39,27 @@ export class SyncPassphraseError extends Error {
 
 /**
  * The encrypted form: AES-256-GCM over the JSON payload, the key derived
- * from the passphrase with PBKDF2-SHA256. The salt travels with the
- * ciphertext, so a browser given the same passphrase derives the same key
- * (docs/sync-design.md, 3.4). Base64 keeps the file JSON, at the cost of a
- * third more bytes; `MAX_UPLOAD_BYTES` bites earlier as a result.
+ * from a passphrase with PBKDF2-SHA256 or from a sync code with HKDF. How
+ * it was derived travels with the ciphertext, so a browser given the same
+ * secret derives the same key (docs/sync-design.md, 3.4). Base64 keeps the
+ * file JSON, at the cost of a third more bytes; the backends' size caps
+ * bite earlier as a result.
  */
 export interface Envelope {
   version: number;
   cipher: string;
-  kdf: { name: string; iterations: number; salt: string };
+  kdf: SyncKdf;
   iv: string;
   ciphertext: string;
 }
 
 export const ENVELOPE_VERSION = 1;
 const CIPHER = "AES-256-GCM";
-const KDF = "PBKDF2-SHA256";
-/** OWASP's 2023 figure for PBKDF2-HMAC-SHA256; about half a second on a laptop. */
-export const PBKDF2_ITERATIONS = 600_000;
-/**
- * The most an envelope may ask for. The count is read from the copy when a
- * passphrase is set, and a copy that asked for billions would keep the
- * settings page busy for hours.
- */
-const MAX_PBKDF2_ITERATIONS = 10_000_000;
 const SALT_BYTES = 16;
 const IV_BYTES = 12;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-function toBase64(bytes: Uint8Array): string {
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += 0x8000) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  }
-  return btoa(binary);
-}
-
-function fromBase64(text: string): Uint8Array<ArrayBuffer> {
-  let binary: string;
-  try {
-    binary = atob(text);
-  } catch {
-    throw new SyncPayloadError("The remote copy is not readable.");
-  }
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
 }
 
 function parseJson(text: string): unknown {
@@ -113,29 +86,13 @@ export function readEnvelope(value: unknown): Envelope {
     throw new SyncVersionError("The remote copy was encrypted by a newer version of Fukidashi.");
   }
 
-  const { cipher, kdf, iv, ciphertext } = value;
-  if (
-    cipher !== CIPHER ||
-    !isRecord(kdf) ||
-    kdf.name !== KDF ||
-    typeof kdf.iterations !== "number" ||
-    !Number.isInteger(kdf.iterations) ||
-    kdf.iterations < 1 ||
-    kdf.iterations > MAX_PBKDF2_ITERATIONS ||
-    typeof kdf.salt !== "string" ||
-    typeof iv !== "string" ||
-    typeof ciphertext !== "string"
-  ) {
+  const { cipher, iv, ciphertext } = value;
+  const kdf = readSyncKdf(value.kdf);
+  if (cipher !== CIPHER || !kdf || typeof iv !== "string" || typeof ciphertext !== "string") {
     throw new SyncPayloadError("The remote copy is not readable.");
   }
 
-  return {
-    version: value.version,
-    cipher,
-    kdf: { name: kdf.name, iterations: kdf.iterations, salt: kdf.salt },
-    iv,
-    ciphertext,
-  };
+  return { version: value.version, cipher, kdf, iv, ciphertext };
 }
 
 /** Reads `text` as an envelope, or returns null when it is something else. */
@@ -160,7 +117,7 @@ export async function deriveSyncKey(
 ): Promise<SyncKey> {
   const material = await crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(passphrase.normalize("NFKC")),
+    utf8(passphrase.normalize("NFKC")),
     "PBKDF2",
     false,
     ["deriveBits"],
@@ -170,7 +127,7 @@ export async function deriveSyncKey(
     material,
     256,
   );
-  return { salt, iterations, key: toBase64(new Uint8Array(bits)) };
+  return { kdf: { name: "PBKDF2-SHA256", salt, iterations }, key: toBase64(new Uint8Array(bits)) };
 }
 
 function importAesKey(key: SyncKey): Promise<CryptoKey> {
@@ -185,12 +142,12 @@ export async function encryptPayload(payload: SyncPayload, key: SyncKey): Promis
   const ciphertext = await crypto.subtle.encrypt(
     { name: "AES-GCM", iv },
     await importAesKey(key),
-    new TextEncoder().encode(JSON.stringify(payload)),
+    utf8(JSON.stringify(payload)),
   );
   const envelope: Envelope = {
     version: ENVELOPE_VERSION,
     cipher: CIPHER,
-    kdf: { name: KDF, iterations: key.iterations, salt: key.salt },
+    kdf: key.kdf,
     iv: toBase64(iv),
     ciphertext: toBase64(new Uint8Array(ciphertext)),
   };
@@ -198,17 +155,16 @@ export async function encryptPayload(payload: SyncPayload, key: SyncKey): Promis
 }
 
 /**
- * Opens an envelope with `key`. A key derived with another salt or another
- * number of rounds cannot have come from the same passphrase, and one that
- * fails to decrypt did not either — all read as the wrong passphrase.
+ * Opens an envelope with `key`. A key derived another way — from another
+ * salt, another number of rounds, or another kind of secret — cannot have
+ * come from the same secret, and one that fails to decrypt did not either:
+ * all read as the wrong passphrase.
  */
 export async function decryptEnvelope(envelope: Envelope, key: SyncKey): Promise<SyncPayload> {
   const mismatch = new SyncPassphraseError(
     "The passphrase on this browser is not the one the copy was encrypted with.",
   );
-  if (envelope.kdf.salt !== key.salt || envelope.kdf.iterations !== key.iterations) {
-    throw mismatch;
-  }
+  if (!sameSyncKdf(envelope.kdf, key.kdf)) throw mismatch;
 
   let plain: ArrayBuffer;
   try {
@@ -235,24 +191,43 @@ export interface CodecKeys {
   write(): Promise<SyncKey | null>;
 }
 
+export interface CodecOptions {
+  /**
+   * Whether the notes may be plain at all, read or written. On Drive they
+   * may: a plaintext copy is what a device without a passphrase wrote, and
+   * is taken in and written back encrypted. On the relay they may not:
+   * nothing there was ever plain, and the blob id is the only access
+   * control, so unauthenticated JSON is not to be trusted with the notes —
+   * and with no key to write with, nothing is written at all.
+   */
+  allowPlaintext?: boolean;
+}
+
 /**
  * The one codec, plain or encrypting by its keys. It reads both forms
- * whenever it can: a plaintext copy is what a device without a passphrase
- * wrote, and is taken in and written back encrypted (docs/sync-design.md,
- * 3.4). An envelope with no key to open it is reported as such, distinct
- * from a copy that is broken.
+ * whenever it can (docs/sync-design.md, 3.4). An envelope with no key to
+ * open it is reported as such, distinct from a copy that is broken.
  */
-export function createSyncCodec(keys: CodecKeys): PayloadCodec {
+export function createSyncCodec(keys: CodecKeys, options: CodecOptions = {}): PayloadCodec {
+  const allowPlaintext = options.allowPlaintext ?? true;
+
   return {
     async encode(payload) {
       const key = await keys.write();
-      return key ? encryptPayload(payload, key) : JSON.stringify(payload);
+      if (key) return encryptPayload(payload, key);
+      if (!allowPlaintext) {
+        throw new SyncPassphraseError("There is no key to encrypt the notes with.");
+      }
+      return JSON.stringify(payload);
     },
 
     async decode(text) {
       const value = parseJson(text);
       const encrypts = (await keys.write()) !== null;
-      if (!isEnvelope(value)) return { payload: parseSyncPayload(value), rewrite: encrypts };
+      if (!isEnvelope(value)) {
+        if (!allowPlaintext) throw new SyncPayloadError("The remote copy is not encrypted.");
+        return { payload: parseSyncPayload(value), rewrite: encrypts };
+      }
 
       const envelope = readEnvelope(value);
       const key = await keys.read();
