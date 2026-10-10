@@ -3,18 +3,17 @@
  * same secret to derive it again. Every envelope carries it with the
  * ciphertext (see codec.ts).
  */
-export type SyncKdf =
-  /** From a passphrase: the salt and the round count, both public. */
-  | { name: "PBKDF2-SHA256"; salt: string; iterations: number }
-  /** From a sync code, the way relay/code.ts does it; nothing to carry. */
-  | { name: "HKDF-SHA256" };
+export interface SyncKdf {
+  name: "PBKDF2-SHA256";
+  salt: string;
+  iterations: number;
+}
 
 /**
  * The key the notes are encrypted with before they leave this device. It is
- * derived from a secret the user holds — a passphrase, or a sync code — and
- * kept per device, never synced: every browser is given the secret on its
- * own. The passphrase itself is not kept; the key stands in for it here,
- * and cannot be turned back into it.
+ * derived from the user's passphrase and kept per device, never synced:
+ * every browser is given the passphrase on its own. The passphrase itself
+ * is not kept; the key stands in for it here, and cannot be turned back into it.
  */
 export interface SyncKey {
   kdf: SyncKdf;
@@ -38,7 +37,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 /** Reads a derivation description back, or null for one this version cannot use. */
 export function readSyncKdf(value: unknown): SyncKdf | null {
   if (!isRecord(value)) return null;
-  if (value.name === "HKDF-SHA256") return { name: "HKDF-SHA256" };
   if (value.name !== "PBKDF2-SHA256") return null;
 
   const { salt, iterations } = value;
@@ -55,10 +53,7 @@ export function readSyncKdf(value: unknown): SyncKdf | null {
 }
 
 export function sameSyncKdf(a: SyncKdf, b: SyncKdf): boolean {
-  if (a.name === "PBKDF2-SHA256") {
-    return b.name === "PBKDF2-SHA256" && a.salt === b.salt && a.iterations === b.iterations;
-  }
-  return b.name === a.name;
+  return a.name === b.name && a.salt === b.salt && a.iterations === b.iterations;
 }
 
 export const SYNC_KEY_KEY = "fukidashi:sync:key";
@@ -68,9 +63,8 @@ export function isSyncKeyKey(key: string): boolean {
 }
 
 /**
- * Before a key could come from a sync code, the salt and the round count sat
- * on the key itself rather than under `kdf`. Nothing released wrote that
- * shape, but a browser that ran a build from between the two did — and the
+ * Earlier development builds stored the salt and round count on the key
+ * itself rather than under `kdf`. A browser may still hold that shape, and the
  * key is the only thing standing in for a passphrase already entered, so
  * dropping it would leave that browser unable to read its own copy, or to
  * take the encryption off again, without the passphrase.

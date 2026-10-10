@@ -39,11 +39,10 @@ export class SyncPassphraseError extends Error {
 
 /**
  * The encrypted form: AES-256-GCM over the JSON payload, the key derived
- * from a passphrase with PBKDF2-SHA256 or from a sync code with HKDF. How
- * it was derived travels with the ciphertext, so a browser given the same
- * secret derives the same key (docs/sync-design.md, 3.4). Base64 keeps the
- * file JSON, at the cost of a third more bytes; the backends' size caps
- * bite earlier as a result.
+ * from a passphrase with PBKDF2-SHA256. The derivation details travel with
+ * the ciphertext, so a browser given the same passphrase derives the same
+ * key (docs/sync-design.md, 3.4). Base64 keeps the file JSON, at the cost of
+ * a third more bytes; Drive's size cap bites earlier as a result.
  */
 export interface Envelope {
   version: number;
@@ -155,10 +154,9 @@ export async function encryptPayload(payload: SyncPayload, key: SyncKey): Promis
 }
 
 /**
- * Opens an envelope with `key`. A key derived another way — from another
- * salt, another number of rounds, or another kind of secret — cannot have
- * come from the same secret, and one that fails to decrypt did not either:
- * all read as the wrong passphrase.
+ * Opens an envelope with `key`. A key derived with another salt or round
+ * count cannot open this envelope. A derivation mismatch or a failure to
+ * decrypt is reported as the wrong passphrase.
  */
 export async function decryptEnvelope(envelope: Envelope, key: SyncKey): Promise<SyncPayload> {
   const mismatch = new SyncPassphraseError(
@@ -191,33 +189,16 @@ export interface CodecKeys {
   write(): Promise<SyncKey | null>;
 }
 
-export interface CodecOptions {
-  /**
-   * Whether the notes may be plain at all, read or written. On Drive they
-   * may: a plaintext copy is what a device without a passphrase wrote, and
-   * is taken in and written back encrypted. On the relay they may not:
-   * nothing there was ever plain, and the blob id is the only access
-   * control, so unauthenticated JSON is not to be trusted with the notes —
-   * and with no key to write with, nothing is written at all.
-   */
-  allowPlaintext?: boolean;
-}
-
 /**
  * The one codec, plain or encrypting by its keys. It reads both forms
  * whenever it can (docs/sync-design.md, 3.4). An envelope with no key to
  * open it is reported as such, distinct from a copy that is broken.
  */
-export function createSyncCodec(keys: CodecKeys, options: CodecOptions = {}): PayloadCodec {
-  const allowPlaintext = options.allowPlaintext ?? true;
-
+export function createSyncCodec(keys: CodecKeys): PayloadCodec {
   return {
     async encode(payload) {
       const key = await keys.write();
       if (key) return encryptPayload(payload, key);
-      if (!allowPlaintext) {
-        throw new SyncPassphraseError("There is no key to encrypt the notes with.");
-      }
       return JSON.stringify(payload);
     },
 
@@ -225,7 +206,6 @@ export function createSyncCodec(keys: CodecKeys, options: CodecOptions = {}): Pa
       const value = parseJson(text);
       const encrypts = (await keys.write()) !== null;
       if (!isEnvelope(value)) {
-        if (!allowPlaintext) throw new SyncPayloadError("The remote copy is not encrypted.");
         return { payload: parseSyncPayload(value), rewrite: encrypts };
       }
 

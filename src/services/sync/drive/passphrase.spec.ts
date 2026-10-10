@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createSyncPayload, digestSyncPages, type Note, type SyncPayload } from "@/core";
+import {
+  createSyncPayload,
+  digestSyncPages,
+  type Note,
+  type SyncPayload,
+  SyncPayloadError,
+} from "@/core";
 import { SYNC_NOW } from "@/services/messages";
 import { createFakeChromeIdentity } from "@/testing/fakeChromeIdentity";
 import { createFakeChromeRuntime } from "@/testing/fakeChromeRuntime";
@@ -136,14 +142,17 @@ describe("setSyncPassphrase", () => {
     expect(key.kdf).toMatchObject({ name: "PBKDF2-SHA256", iterations: ITERATIONS });
   });
 
-  it("refuses a copy that was not encrypted with a passphrase", async () => {
+  it("refuses a copy with an unsupported key derivation and keeps nothing", async () => {
     await connectedEarlier();
-    const fromCode = { kdf: { name: "HKDF-SHA256" as const }, key: btoa("k".repeat(32)) };
-    drive.plant(DRIVE_FILE_NAME, await encryptPayload(theirs, fromCode));
+    const key = await deriveSyncKey("correct horse", randomSalt(), ITERATIONS);
+    const envelope = JSON.parse(await encryptPayload(theirs, key));
+    envelope.kdf = { name: "unsupported" };
+    drive.plant(DRIVE_FILE_NAME, JSON.stringify(envelope));
 
-    await expect(setSyncPassphrase("correct horse")).rejects.toThrow(SyncPassphraseError);
+    await expect(setSyncPassphrase("correct horse")).rejects.toThrow(SyncPayloadError);
 
     await expect(loadSyncKey()).resolves.toBeNull();
+    expect(sent).toEqual([]);
   });
 
   it("refuses a passphrase that does not open the copy, and keeps nothing", async () => {

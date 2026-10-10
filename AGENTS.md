@@ -27,18 +27,11 @@
   every call from `fukidashi:sync:key` (`key.ts`; derived from the passphrase with
   PBKDF2-SHA256, 600k rounds, never synced). It reads both forms while it has a key and
   flags a plaintext copy for a rewrite, which is how a passphrase takes effect without an
-  edit; a copy it cannot open is the `wrongPassphrase` state. `src/services/sync/relay/`
-  holds the second backend, the sync-code relay: `code.ts` (the 24-character code and the
-  blob id and key HKDF derives from it), `store.ts` (the code kept on the device), `api.ts`
-  (the relay's few calls; versions are its ETags), `backend.ts` (the `SyncBackend`, with the
-  If-Match Drive lacks) and `connection.ts` (creating a code, which claims the blob at once;
-  joining with one, which refuses a code that names nothing; disconnecting). The relay
-  codec refuses a blob that is not an envelope. The relay itself is a Cloudflare Worker in
-  `relay/` (see `relay/README.md`); its blob logic runs unchanged in the extension's tests
-  through `src/testing/fakeRelay.ts`. The design is in `docs/sync-design.md`.
+  edit; a copy it cannot open is the `wrongPassphrase` state. Google Drive is the only
+  sync backend. The design is in `docs/sync-design.md`.
 - `src/testing/` holds test helpers: fakes for `chrome.storage`, `chrome.alarms`,
-  `chrome.identity`, the runtime's start-up events, the sync backend, Google Drive and the
-  relay (each behind a `fetch` of its own), and the Vitest setup file that fills in `Range.getBoundingClientRect` and
+  `chrome.identity`, the runtime's start-up events, the sync backend and Google Drive
+  (behind a `fetch` of its own), and the Vitest setup file that fills in `Range.getBoundingClientRect` and
   `Element.scrollIntoView`, which jsdom does not implement.
 - `src/assets/` stores assets imported from code; `public/` stores files copied as-is
   (`public/icon/*.png` is picked up by WXT as the extension icon).
@@ -101,11 +94,10 @@
 - Get a new one with `node scripts/get-chrome-refresh-token.mjs`, then update that one
   secret. Do not reach for `wxt submit init`: it asks Google for the out-of-band
   redirect, which Google stopped accepting in January 2023, and 6.1.1 still does.
-- The store builds bake in the OAuth client id the Drive sync signs in with and the address
-  of the sync-code relay, from the `WXT_GOOGLE_CLIENT_ID` and `WXT_SYNC_RELAY_URL` repository
-  variables (Settings → Secrets and variables → Actions → Variables). Both are public, so
-  variables rather than secrets; without them every released build's Connect and Create a
-  sync code buttons refuse. The relay itself is deployed separately, from `relay/`.
+- The store builds bake in the OAuth client id the Drive sync signs in with, from the
+  `WXT_GOOGLE_CLIENT_ID` repository variable (Settings → Secrets and variables → Actions →
+  Variables). The id is public, so it is a variable rather than a secret; without it every
+  released build's Connect button refuses.
 - What the store forms ask, and what to answer, is in `docs/store-disclosures.md`.
 
 ## Security & Configuration Tips
@@ -117,13 +109,10 @@
   Firefox before signing in, so nothing leaves the device until the user says so. After
   touching the manifest, check a Firefox build with
   `pnpm dlx web-ext lint --source-dir dist/firefox-mv2`.
-- `.env` (see `.env.example`) carries three build-time values: `WXT_GOOGLE_CLIENT_ID`, the
+- `.env` (see `.env.example`) carries two build-time values: `WXT_GOOGLE_CLIENT_ID`, the
   OAuth client the Drive sync signs in with; `WXT_EXTENSION_KEY`, the store build's public
   key, which gives a Chrome dev build the store build's extension id so the OAuth redirect
-  URI matches; and `WXT_SYNC_RELAY_URL`, where the sync-code relay answers — left empty, the settings
-  page offers Google Drive alone. None is a secret; a fork should use a client and a relay
-  of its own (the relay is deployed from `relay/` with `pnpm dlx wrangler deploy`, see
-  `relay/README.md`).
+  URI matches. Neither is a secret; a fork should use an OAuth client of its own.
 - Keep logic in `src/core/` pure and side-effect free for easier review.
 - `pnpm-workspace.yaml` lists the only dependencies allowed to run install scripts
   (`allowBuilds`); add an entry deliberately rather than approving everything.

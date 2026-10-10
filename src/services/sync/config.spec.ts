@@ -33,6 +33,12 @@ describe("loadSyncConfig", () => {
     await storage.chrome.storage.local.set({ [SYNC_CONFIG_KEY]: "drive" });
     await expect(loadSyncConfig()).resolves.toBeNull();
   });
+
+  it("leaves syncing off for a backend removed from this version", async () => {
+    await storage.chrome.storage.local.set({ [SYNC_CONFIG_KEY]: { backend: "relay" } });
+
+    await expect(loadSyncConfig()).resolves.toBeNull();
+  });
 });
 
 describe("saveSyncConfig", () => {

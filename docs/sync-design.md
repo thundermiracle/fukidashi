@@ -5,7 +5,7 @@ Everything decided in #6 ("sync foundation") is taken as given here.
 
 ## 0. Summary
 
-- **Google Drive's `appDataFolder` is the first backend.** There is nothing to operate and no abuse surface, and the data stays inside the user's own Google account. `drive.appdata` is a non-sensitive scope, so no OAuth verification is needed. The sync-code relay (Cloudflare) slots in behind the same `SyncBackend` later.
+- **Google Drive's `appDataFolder` is the sync backend.** There is nothing to operate and no abuse surface, and the data stays inside the user's own Google account. `drive.appdata` is a non-sensitive scope, so no OAuth verification is needed.
 - **Auth is `chrome.identity.launchWebAuthFlow` with the implicit flow (`response_type=token`)**, renewed silently with `prompt=none`. Authorization code + PKCE is out: Google requires a client secret from web-application clients, and an extension cannot carry one. Being signed out is a first-class state, not an error.
 - **The remote is one file.** Drive API v3 has no ETag / If-Match (checked against the reference), so strict optimistic locking is impossible. A `version` check right before the write narrows the window to a few hundred milliseconds; anything lost inside that window is repaired on the loser's next sync, because the merge is last-write-wins, idempotent and commutative.
 - **Step 0 closes the gaps the foundation left**: the read-modify-write window, `lastSyncedAt` reset on failure, tombstones that never leave, the alarm re-created on every service-worker wake, and a sync run on every wake.
@@ -20,7 +20,7 @@ Everything decided in #6 ("sync foundation") is taken as given here.
 
 `collectSyncPages` reads only those two prefixes, so a new key never becomes synced by accident.
 
-Out of scope for this stage: the sync-code relay, several accounts at once, push notifications, delta sync, a device list. (Encryption was first listed here too; it landed as Step 5.)
+Out of scope for this stage: several accounts at once, push notifications, delta sync, a device list. (Encryption was first listed here too; it landed as Step 5.)
 
 ## 2. What the foundation already provides
 
@@ -41,16 +41,16 @@ Out of scope for this stage: the sync-code relay, several accounts at once, push
 
 ### 3.1 Backend: Google Drive `appDataFolder`
 
-| Aspect | Drive `appDataFolder` | Sync code + relay (Workers) |
-| --- | --- | --- |
-| Operations | none | a server kept alive forever; rate limits, size caps and cleanup of abandoned blobs become duties |
-| Account | a Google account | none, only a code to keep |
-| Privacy story | "sent only to a hidden folder in your own Drive; the developer runs no server" | "passes through the developer's server, unreadable thanks to end-to-end encryption" |
-| Optimistic locking | none (see 3.3) | a Durable Object gives compare-and-swap for free |
-| End-to-end encryption | optional (Step 5) | mandatory |
-| Browsers | Chrome, Brave, Firefox (`launchWebAuthFlow`) | the same |
+| Aspect | Drive `appDataFolder` |
+| --- | --- |
+| Operations | No developer-operated server |
+| Account | A Google account |
+| Privacy | Notes go directly to a hidden folder in the user's own Drive |
+| Optimistic locking | Version check and revision repair (see 3.3) |
+| End-to-end encryption | Optional passphrase (Step 5) |
+| Browsers | Chrome, Brave, Firefox (`launchWebAuthFlow`) |
 
-Drive ships first because it runs itself, and because the privacy policy can keep saying that the developer holds nothing. The relay is the second backend, for people who do not want Google, in Step 6. The two can coexist: two `SyncBackend` implementations, one engine, one scheduler, one status, one UI.
+One `SyncBackend` implementation connects Google Drive to the engine and scheduler.
 
 ### 3.2 Auth: `launchWebAuthFlow` and the implicit flow
 
@@ -77,20 +77,10 @@ Drive ships first because it runs itself, and because the privacy policy can kee
 ### 3.4 Where encryption goes
 
 - `SyncBackend` passes `SyncPayload` objects around. The "payload to bytes" step is cut out as `PayloadCodec { encode(payload): Promise<string>; decode(text): Promise<{ payload, rewrite }> }` and injected into the backend. `decode` also says whether `encode` would have written the text differently; the backend passes that on as `RemoteSnapshot.rewrite`, and the engine then pushes even when the notes agree. That is how a copy changes form without waiting for an edit.
-- End-to-end encryption is a codec swap (Step 5, done): AES-256-GCM over the JSON payload, the key from a passphrase through PBKDF2-SHA256 (600k rounds) for Drive, or from the sync code through HKDF for the relay. The envelope `{ version, cipher, kdf: { name, iterations, salt }, iv, ciphertext }` stays JSON; base64 costs a third more bytes, so the 5 MiB cap bites at about 3.7 MiB of notes. Engine and scheduler know nothing of it beyond the `rewrite` flag and one more state, `wrongPassphrase`, which is held back like `signedOut` until the settings page asks for a run.
+- End-to-end encryption is a codec swap (Step 5, done): AES-256-GCM over the JSON payload, the key from a passphrase through PBKDF2-SHA256 (600k rounds). The envelope `{ version, cipher, kdf: { name, iterations, salt }, iv, ciphertext }` stays JSON; base64 costs a third more bytes, so the 5 MiB cap bites at about 3.7 MiB of notes. Engine and scheduler know nothing of it beyond the `rewrite` flag and one more state, `wrongPassphrase`, which is held back like `signedOut` until the settings page asks for a run.
 - The key is derived on the settings page and kept per device (`fukidashi:sync:key`); the passphrase itself is not stored, and the codec reads the key on every call, so a passphrase set on the settings page reaches the backend the scheduler already holds. The salt travels in the envelope: setting a passphrase reads the copy first, and if it is encrypted, derives the key with that copy's salt and iterations and tries it — a wrong passphrase is refused on the spot. Otherwise a fresh salt is drawn, and the next round rewrites the plaintext copy encrypted. Two devices drawing fresh salts before either pushes is the one edge case; the second lands in `wrongPassphrase`, and re-entering the passphrase there adopts the salt.
 - The codec reads both forms while it has a key, so a device without the passphrase and one with it share a copy without breaking anything: whatever the plain device pushes is taken in and written back encrypted, and the plain device then shows `wrongPassphrase` — its own notes and the copy untouched — until it is given the passphrase. Encryption is therefore sticky: removing the passphrase on one device rewrites the copy as plaintext (one round with a codec that still opens it but writes plain), but any device that still has it encrypts the copy again on its next round. Disconnecting forgets the key along with the token.
-- Optional on Drive (a forgotten passphrase means no more sync, which is a real UX cost, and nobody can recover it). Mandatory for the relay.
-
-### 3.5 The sync-code relay
-
-- **The code.** 15 random bytes, shown as 24 characters of Crockford's base32 in six groups of four (`XXXX-XXXX-XXXX-XXXX-XXXX-XXXX`). The alphabet has no I, L, O or U, and a typed i, l or o still decodes; case and dashes do not matter. The outline said 16 bytes; 15 is what divides evenly into base32, and 120 bits is not the weak link.
-- **What is derived from it.** HKDF-SHA256 with an empty salt and two `info` strings: `fukidashi-sync/blob-id` gives the 128-bit blob id (hex, public — all the relay ever sees) and `fukidashi-sync/key` the 256-bit AES key. Neither leads back to the code, and the id gives no way to the key. The key is a `SyncKey` with `kdf: { name: "HKDF-SHA256" }`, so the envelope from 3.4 carries it as it does a passphrase key.
-- **The relay** (`relay/`): one Cloudflare Worker routing `/v1/blob/{id}` to a Durable Object per id, SQLite-backed. `GET` (with `If-None-Match` → 304), `HEAD` (the version alone, answered from the metadata without reading the notes — what an idle round costs), `PUT` (`If-None-Match: *` to create, `If-Match` to write over that version; 412 otherwise, 428 without a precondition, 413 over the cap) and `DELETE`. The cap is 1.9 MB rather than the outline's 2 MB: Cloudflare allows 2 MB for a key and its value together, and the body is stored as one value, apart from the version. The outline had only GET and PUT; HEAD is what `peek` needs, DELETE what "disconnect and delete the copy" needs. ETags are quoted version counters; the extension treats them as opaque, but strips the `W/` a proxy adds when it compresses an answer — Cloudflare weakens the tag it passes on, and a HEAD, having no body to compress, would otherwise name a different version than a GET. Both sides compare tags with that marker ignored, which is right here: the entity is the same, only the way it was carried differs. 60 requests per minute per id, then 429 with `Retry-After`, which the scheduler's backoff absorbs. Every request resets a 90-day retention alarm; the alarm deletes a blob nobody touched. Every response carries CORS headers for `*` and `Cache-Control: no-store` — which answers the `host_permissions` open point for the relay: none needed.
-- **Claim on create, verify on join.** The engine never pushes when both sides are empty, so a code created on a browser with no notes would leave nothing for a second browser to find. Creating a code therefore claims the blob at once with an encrypted empty payload (`If-None-Match: *`). Joining with a code HEADs the blob first and refuses a 404 as a probable typo, rather than quietly starting a second, empty set of notes under the mistyped code. That is the typo defence; the code carries no checksum.
-- **Always encrypted.** The relay codec refuses a blob that is not an envelope, and refuses to write one when it has no key: nothing on the relay was ever plain, and the id is the only access control, so unauthenticated JSON is not to be trusted with the notes. A blob under another code's key reads as `wrongPassphrase`, the same state as on Drive.
-- **What the id buys an attacker.** Not the notes: the key is not derivable from the id, and the blob is ciphertext. It buys deletion and overwriting (a HEAD hands out the ETag `If-Match` wants). A deleted blob comes back from the next device to sync, which finds nothing and pushes its own copy. An overwritten one is refused by every device — plaintext as not encrypted, another key's envelope as `wrongPassphrase` — and the notes stay where they are until the user creates a new code; a nuisance, not a loss. The id is 128 bits from HKDF, so guessing is not a route; the risk is the id leaking from the relay's logs or from a request in flight, which is why the relay is the developer's and TLS-only.
-- **What the operator sees.** The blob id, ciphertext, and what Cloudflare logs about a request (IP address, timing). The privacy policy says so, and that the relay is the developer's. A fork deploys its own (`relay/README.md`) and points the build at it through `WXT_SYNC_RELAY_URL`; a build without that address offers Google Drive alone, rather than a button that always refuses.
+- Optional: a forgotten passphrase means no more sync, and nobody can recover it.
 
 ### 3.5 The format contract
 
@@ -119,8 +109,6 @@ popup footer ◀── watchSyncStatus ── fukidashi:sync-status
 | `src/services/sync/codec.ts` | `PayloadCodec`, the envelope, key derivation, and the one codec — plain or encrypting by its keys | new |
 | `src/services/sync/key.ts` | the passphrase-derived key kept on the device | new |
 | `src/services/sync/drive/passphrase.ts` | setting and removing the passphrase, as the settings page does it | new |
-| `src/services/sync/relay/` | the sync-code relay backend: the code and what HKDF derives from it, the few calls, the backend, connecting and disconnecting | new |
-| `relay/` | the relay itself: a Cloudflare Worker and its Durable Object, deployed on its own | new |
 | `src/services/sync/config.ts` | `SyncConfig` (`{ backend: "drive" }` or absent): load / save / watch | new |
 | `src/services/sync/configured.ts` | `loadSyncBackend()` becomes async and builds the backend from the config | changed |
 | `src/services/sync/scheduler.ts` | Synchronous listener registration, config watching, lazy backend resolution, alarm guard, backoff, skipping while `signedOut`, `sync-now` | changed |
@@ -208,7 +196,7 @@ Popup: one line next to the `ToggleSwitch` in the footer ("Synced 2m ago", "Sign
 
 ## 6. Steps (one issue each)
 
-Dependencies: 0 → 1 → 2 → 3. Steps 4 and 5 follow 2 and are independent of each other. Step 6 follows 5.
+Dependencies: 0 → 1 → 2 → 3. Steps 4 and 5 follow 2 and are independent of each other.
 
 ### Step 0: close the gaps in the foundation
 
@@ -247,12 +235,6 @@ Dependencies: 0 → 1 → 2 → 3. Steps 4 and 5 follow 2 and are independent of
 - Scope: the AES-256-GCM codec, a passphrase setting on the options page (set, unlock, remove), key storage (`chrome.storage.local`, never synced), the `wrongPassphrase` state. Migration from an existing plaintext file: it reads as plaintext, and is written back encrypted on the next round through the `rewrite` flag (3.4).
 - Acceptance: an encrypted device and a plaintext device side by side break nothing (`engine.spec.ts`, "a browser with a passphrase beside one without"), and "wrong passphrase" shows as a state (`scheduler.spec.ts`).
 
-### Step 6: the sync-code relay (second backend) — done
-
-- Outline: a random seed the user carries as a sync code; HKDF derives the blob id (public) and the key (private). Cloudflare Workers with a Durable Object expose `/v1/blob/{id}` with the preconditions that give `SyncBackend` its compare-and-swap for real. A cap just under 2 MB, 60 requests per minute per id, deleted after 90 days unused. Uses the Step 5 codec, mandatory this time. The details, and where they differ from this outline, are in 3.5.
-- Landed in two parts: first the Worker (`relay/`), the fake that runs the same code in the extension's tests, the relay services (`src/services/sync/relay/`), the generalized key and envelope, and the engine's two-device tests through the relay; then the settings UI (three ways to connect on one card; a sync-code card that shows the code again, copies it, and disconnects with or without the notes on the relay), the `WXT_SYNC_RELAY_URL` build variable, and the documents — the privacy policy in particular, which now describes the one server the developer runs.
-- Acceptance: two browsers sharing a code converge through the relay the way they do through Drive (`engine.spec.ts`, "two devices through the relay"), an idle round is one HEAD, a mistyped code is refused rather than syncing into nothing, and a blob that is not encrypted is refused.
-
 ## 7. Test plan
 
 - Unit: `drive/api.ts` against `fakeDrive` (version numbering, multipart and media, 401 → renewal, the 5 MB cap), `drive/auth.ts` (URL building, fragment parsing, `state` check, handling of `interaction_required`), `codec.ts`.
@@ -264,7 +246,7 @@ Dependencies: 0 → 1 → 2 → 3. Steps 4 and 5 follow 2 and are independent of
 
 | Item | What | Handling |
 | --- | --- | --- |
-| Session-cookie dependence | A browser not signed in to Google goes `signedOut` every hour | Shown as a state. If it turns out common, consider pointing at the relay (Step 6) |
+| Session-cookie dependence | A browser not signed in to Google goes `signedOut` every hour | Shown as a state; the settings page offers an interactive sign-in |
 | No compare-and-swap on Drive | A window of a few hundred ms in which a write can be overwritten | Accepted through self-repair; closed by the `revisions` repair in Step 4 |
 | `"none"` next to `optional` | Unverified whether AMO accepts it | `web-ext lint` in Step 3; fall back to `required` |
 | `host_permissions` | Unverified whether CORS alone is enough | Checked in Step 1 |

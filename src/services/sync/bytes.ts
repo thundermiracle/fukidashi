@@ -1,6 +1,6 @@
 import { SyncPayloadError } from "@/core";
 
-/** Bytes as text and back: base64 for keys and ciphertext, hex for ids. */
+/** Bytes as text and back: base64 for keys and ciphertext. */
 
 export function toBase64(bytes: Uint8Array): string {
   let binary = "";
@@ -20,10 +20,6 @@ export function fromBase64(text: string): Uint8Array<ArrayBuffer> {
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return bytes;
-}
-
-export function toHex(bytes: Uint8Array): string {
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 export function utf8(text: string): Uint8Array<ArrayBuffer> {

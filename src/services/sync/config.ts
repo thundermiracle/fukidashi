@@ -1,11 +1,10 @@
 /**
  * How this device syncs, once the user has set it up. Absent until then,
  * which is what keeps the background idle. Kept per device, never synced:
- * each browser is connected on its own. The relay's sync code lives in its
- * own key (relay/store.ts), as the Drive token does.
+ * each browser is connected to Google Drive on its own.
  */
 export interface SyncConfig {
-  backend: "drive" | "relay";
+  backend: "drive";
 }
 
 export const SYNC_CONFIG_KEY = "fukidashi:sync:config";
@@ -18,7 +17,7 @@ export function isSyncConfigKey(key: string): boolean {
 function toSyncConfig(value: unknown): SyncConfig | null {
   if (typeof value !== "object" || value === null) return null;
   const { backend } = value as Partial<SyncConfig>;
-  return backend === "drive" || backend === "relay" ? { backend } : null;
+  return backend === "drive" ? { backend } : null;
 }
 
 export async function loadSyncConfig(): Promise<SyncConfig | null> {

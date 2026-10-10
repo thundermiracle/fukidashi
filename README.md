@@ -27,11 +27,6 @@ memo — and find it again the next time you open the page.
   deletions carry across, and a note deleted anywhere stays deleted. The copy
   lives in a hidden folder in your own Google Drive; there is no server of
   ours in between.
-- **Or a sync code instead of Google** — create a code on one browser and
-  enter it on the others. The notes travel encrypted with the code through a
-  small relay the developer runs; it cannot read them, and it forgets notes
-  nobody has synced for 90 days. Anyone with the code can read the notes, so
-  keep it as you would a password.
 - **Encrypted, if you like** — set a passphrase on the settings page and the
   notes are encrypted on your device before they reach Drive. Every browser
   you connect needs the passphrase; a forgotten one cannot be recovered.
@@ -55,15 +50,17 @@ pnpm install
 pnpm run dev
 ```
 
-`pnpm run dev` opens a browser with the extension loaded (Brave, configured in
-`wxt.config.ts`). To load a build by hand instead, run `pnpm run build` and add
-`dist/chrome-mv3` as an unpacked extension on `chrome://extensions`.
+`pnpm run dev` opens a browser with the extension loaded by default. For Google
+sign-in, use a normally opened browser: set `disabled: true` in a local
+`web-ext.config.ts`, keep the dev server running, and load `dist/chrome-mv3-dev`
+as an unpacked extension on `chrome://extensions`. See
+[`docs/local-testing.md`](docs/local-testing.md) for the setup and redirect URIs.
+To load a production build instead, run `pnpm run build` and add `dist/chrome-mv3`.
 
-Connecting Google Drive needs an OAuth client id in `.env` (see
-`.env.example`), and syncing with a code needs the relay's address there too
-(`WXT_SYNC_RELAY_URL`; a fork deploys its own relay from `relay/`, and a build
-without one offers Google Drive alone). The store builds get theirs from the
-`WXT_GOOGLE_CLIENT_ID` and `WXT_SYNC_RELAY_URL` repository variables.
+Connecting Google Drive needs `WXT_GOOGLE_CLIENT_ID` in `.env` (see
+`.env.example`). `WXT_EXTENSION_KEY` optionally gives a Chrome dev build the
+store build's extension id. The store builds get the OAuth client id from the
+`WXT_GOOGLE_CLIENT_ID` repository variable.
 
 ## Commands
 
@@ -103,10 +100,9 @@ context, so it can be found again after the page changes. See
   original page, where there is no translated text to jump to.
 - A note is lost when the page rewrites the text it was attached to; the popup
   still lists it, and the highlight returns if the text comes back.
-- Sync needs a Google account or the developer's relay; a fork has to run a
-  relay of its own (see `relay/README.md`). A browser that
-  has not synced for more than 30 days can bring back a note deleted in the
-  meantime — deletions are kept for 30 days for it to catch up.
+- Sync needs a Google account. A browser that has not synced for more than
+  30 days can bring back a note deleted in the meantime — deletions are kept
+  for 30 days for it to catch up.
 - A forgotten passphrase cannot be recovered. Browsers that already have it go
   on syncing; only a new browser is kept out. To start over, remove the
   passphrase on every browser that has it (removing needs no passphrase), then

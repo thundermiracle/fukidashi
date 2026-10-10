@@ -9,18 +9,14 @@ import {
 } from "@/core";
 import { createFakeChromeStorage } from "@/testing/fakeChromeStorage";
 import { createFakeDrive } from "@/testing/fakeDrive";
-import { createFakeRelay } from "@/testing/fakeRelay";
 import { createFakeSyncBackend } from "@/testing/fakeSyncBackend";
 import { deleteNote, loadNotes, notesKey, saveNote, savePageTitle } from "../notes";
 import { type SyncBackend, SyncConflictError, SyncSignedOutError } from "./backend";
-import { toBase64 } from "./bytes";
 import {
   createSyncCodec,
-  decryptEnvelope,
   deriveSyncKey,
   type PayloadCodec,
   randomSalt,
-  readEnvelope,
   readEnvelopeIfAny,
   SyncPassphraseError,
 } from "./codec";
@@ -28,8 +24,6 @@ import { createDriveApi } from "./drive/api";
 import { createDriveBackend, DRIVE_FILE_NAME } from "./drive/backend";
 import { syncOnce } from "./engine";
 import type { SyncKey } from "./key";
-import { createRelayApi } from "./relay/api";
-import { createRelayBackend } from "./relay/backend";
 import { collectSyncPages } from "./storage";
 
 const PAGE = "https://example.com/docs";
@@ -88,36 +82,6 @@ function driveRemote(
     pages: async () => {
       const text = drive.content(DRIVE_FILE_NAME);
       return text === undefined ? undefined : (JSON.parse(text) as SyncPayload).pages;
-    },
-  };
-}
-
-const RELAY_BLOB_ID = "0123456789abcdef0123456789abcdef";
-/** The key both devices derived from the one sync code they share. */
-const RELAY_KEY: SyncKey = {
-  kdf: { name: "HKDF-SHA256" },
-  key: toBase64(new Uint8Array(32).fill(9)),
-};
-
-/** The sync-code relay as the fake stands in for it, with a client per device. */
-function relayRemote(): Remote & { relay: ReturnType<typeof createFakeRelay> } {
-  const relay = createFakeRelay();
-  const codec = createSyncCodec(
-    { read: async () => RELAY_KEY, write: async () => RELAY_KEY },
-    { allowPlaintext: false },
-  );
-  return {
-    relay,
-    backendFor: () =>
-      createRelayBackend(
-        createRelayApi({ baseUrl: relay.baseUrl }, relay.fetch),
-        RELAY_BLOB_ID,
-        codec,
-      ),
-    pages: async () => {
-      const text = relay.content(RELAY_BLOB_ID);
-      if (text === undefined) return undefined;
-      return (await decryptEnvelope(readEnvelope(JSON.parse(text)), RELAY_KEY)).pages;
     },
   };
 }
@@ -320,7 +284,6 @@ describe("syncOnce", () => {
 describe.each([
   ["a fake backend", fakeBackendRemote],
   ["Google Drive", driveRemote],
-  ["the relay", relayRemote],
 ])("two devices through %s", (_name, createRemote) => {
   it("end up with the same notes", async () => {
     const { remote, on, sync } = createDevices(createRemote());
@@ -434,24 +397,6 @@ describe("an idle round on Google Drive", () => {
     expect(added).toHaveLength(1);
     expect(added[0]).toMatchObject({ method: "GET" });
     expect(new URL(added[0].url).pathname).toBe("/drive/v3/files");
-  });
-});
-
-describe("an idle round on the relay", () => {
-  it("costs one request, the one that asks for the version", async () => {
-    const remote = relayRemote();
-    const { on, sync } = createDevices(remote);
-    await on("desktop", () => saveNote(PAGE, makeNote("a", 100)));
-    await sync("desktop");
-    await sync("laptop");
-    await sync("desktop");
-    const before = remote.relay.requests.length;
-
-    await expect(sync("desktop")).resolves.toEqual({ changedLocally: false, pushed: false });
-
-    expect(remote.relay.requests.slice(before)).toEqual([
-      { method: "HEAD", url: `${remote.relay.baseUrl}/v1/blob/${RELAY_BLOB_ID}` },
-    ]);
   });
 });
 

@@ -72,32 +72,6 @@ export {
   watchSyncKey,
 } from "./key";
 export {
-  BlobTooLargeError,
-  createRelayApi,
-  MAX_BLOB_BYTES,
-  type RelayApi,
-  RelayApiError,
-  type RelayOptions,
-  relayOptions,
-} from "./relay/api";
-export { createRelayBackend } from "./relay/backend";
-export {
-  CODE_LENGTH,
-  deriveRelayIdentity,
-  formatSyncCode,
-  generateSyncCode,
-  normalizeSyncCode,
-  type RelayIdentity,
-  SyncCodeError,
-} from "./relay/code";
-export {
-  connectWithCode,
-  connectWithNewCode,
-  disconnectRelay,
-  relayCodec,
-} from "./relay/connection";
-export { isRelayCodeKey, loadRelayCode, RELAY_CODE_KEY, saveRelayCode } from "./relay/store";
-export {
   type BackendFactory,
   SYNC_ALARM,
   SYNC_PERIOD_MINUTES,

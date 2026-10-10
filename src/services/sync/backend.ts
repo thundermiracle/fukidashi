@@ -34,8 +34,8 @@ export class SyncSignedOutError extends Error {
 /**
  * Somewhere a device's notes can be left for its other devices to find.
  * Deliberately small: a store that can read, write, and say whether it
- * changed underneath is enough for the engine, so Drive, a sync-code relay
- * and WebDAV can all sit behind it.
+ * changed underneath is enough for the engine. Google Drive implements
+ * this interface without exposing its API details to the engine.
  */
 export interface SyncBackend {
   /** The stored payload, or null when nothing has been pushed yet. */

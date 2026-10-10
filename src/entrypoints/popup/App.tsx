@@ -34,24 +34,15 @@ function notesOf(pages: PageNotes[], url: string): Note[] {
   return pages.find((page) => page.url === url)?.notes ?? [];
 }
 
-/**
- * The footer's word on syncing: where it stands, and whether it needs the
- * user. What is asked of them depends on the backend — a passphrase is a
- * thing only the Drive sync has.
- */
-function describeSync(
-  status: SyncStatus,
-  backend: SyncConfig["backend"],
-): { text: string; needsAttention: boolean } {
+/** The footer's word on syncing: where it stands, and whether it needs the user. */
+function describeSync(status: SyncStatus): { text: string; needsAttention: boolean } {
   switch (status.state) {
     case "syncing":
       return { text: "Syncing…", needsAttention: false };
     case "signedOut":
       return { text: "Sign in to sync", needsAttention: true };
     case "wrongPassphrase":
-      return backend === "drive"
-        ? { text: "Enter passphrase to sync", needsAttention: true }
-        : { text: "Sync needs attention", needsAttention: true };
+      return { text: "Enter passphrase to sync", needsAttention: true };
     case "error":
       return { text: "Sync failed", needsAttention: true };
     case "outdated":
@@ -115,7 +106,7 @@ function App() {
 
   const sites = useMemo(() => groupBySite(pages), [pages]);
   const totalNotes = pages.reduce((total, page) => total + page.notes.length, 0);
-  const sync = describeSync(syncStatus, syncConfig?.backend ?? "drive");
+  const sync = describeSync(syncStatus);
 
   // One page's notes are listed either because it is the page in front of the
   // user, or because they picked it out of the site list.

@@ -3,13 +3,9 @@ import { formatRelativeTime } from "@/core";
 import { requestSyncNow } from "@/services/messages";
 import {
   connectDrive,
-  connectWithCode,
-  connectWithNewCode,
   DEFAULT_SYNC_STATUS,
   disconnectDrive,
-  disconnectRelay,
   loadDriveToken,
-  loadRelayCode,
   loadSyncConfig,
   loadSyncKey,
   loadSyncStatus,
@@ -37,18 +33,6 @@ function describeDriveStatus(status: SyncStatus, encrypted: boolean): string {
         : "The copy in Drive is encrypted. Enter its passphrase to keep syncing.";
     case "outdated":
       return "The copy in Drive was written by a newer version of Fukidashi. Update the extension to keep syncing.";
-    default:
-      return describeCommonStatus(status);
-  }
-}
-
-/** The same, for the sync-code card, where the copy is always encrypted with the code. */
-function describeRelayStatus(status: SyncStatus): string {
-  switch (status.state) {
-    case "wrongPassphrase":
-      return "The notes on the relay were not written with this code. Disconnect and join again with the right code, or create a new one.";
-    case "outdated":
-      return "The notes on the relay were written by a newer version of Fukidashi. Update the extension to keep syncing.";
     default:
       return describeCommonStatus(status);
   }
@@ -100,20 +84,14 @@ export function SyncSection() {
   const [deleteCopy, setDeleteCopy] = useState(false);
   const [passphrase, setPassphrase] = useState("");
   const [repeat, setRepeat] = useState("");
-  const [codeEntered, setCodeEntered] = useState("");
-  const [code, setCode] = useState<string | null>(null);
-  const [codeShown, setCodeShown] = useState(false);
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
-  /** Whether this build was told where the relay answers; without it there is nothing to offer. */
-  const hasRelay = Boolean(import.meta.env.WXT_SYNC_RELAY_URL);
 
   useEffect(() => {
     loadSyncConfig().then(setConfig);
     loadSyncStatus().then(setStatus);
     loadDriveToken().then((token) => setEmail(token?.email ?? ""));
     loadSyncKey().then((key) => setEncrypted(key !== null));
-    loadRelayCode().then(setCode);
     const stopWatchingConfig = watchSyncConfig(setConfig);
     const stopWatchingStatus = watchSyncStatus(setStatus);
     const stopWatchingKey = watchSyncKey((key) => setEncrypted(key !== null));
@@ -218,73 +196,6 @@ export function SyncSection() {
     [perform],
   );
 
-  const handleCreateCode = useCallback(
-    () =>
-      perform(
-        async () => {
-          const created = await connectWithNewCode();
-          setCode(created);
-          setCodeShown(true);
-          return {
-            kind: "done",
-            message:
-              "Here is your sync code. Enter it on your other browsers to sync the same notes.",
-          };
-        },
-        (error) => messageOf(error, "Could not create a sync code."),
-      ),
-    [perform],
-  );
-
-  const handleJoin = useCallback(() => {
-    if (codeEntered.trim() === "") {
-      setOutcome({ kind: "failed", message: "Enter the sync code from your other browser." });
-      return;
-    }
-    return perform(
-      async () => {
-        await connectWithCode(codeEntered);
-        setCode(await loadRelayCode());
-        setCodeEntered("");
-        return { kind: "done", message: "Joined. The notes are on their way." };
-      },
-      (error) => messageOf(error, "Could not join with that code."),
-    );
-  }, [codeEntered, perform]);
-
-  const handleDisconnectRelay = useCallback(
-    () =>
-      perform(
-        async () => {
-          await disconnectRelay({ deleteRemoteCopy: deleteCopy });
-          setCode(null);
-          setCodeShown(false);
-          setDeleteCopy(false);
-          return {
-            kind: "done",
-            message: deleteCopy
-              ? "Disconnected. The notes on the relay are gone; the notes here stay."
-              : "Disconnected. The notes on the relay stay for your other browsers, and so do the notes here.",
-          };
-        },
-        (error) => messageOf(error, "Could not disconnect."),
-      ),
-    [deleteCopy, perform],
-  );
-
-  const handleCopyCode = useCallback(
-    () =>
-      perform(
-        async () => {
-          if (code === null) return null;
-          await navigator.clipboard.writeText(code);
-          return { kind: "done", message: "Copied." };
-        },
-        () => "Could not copy the code; select it and copy it by hand.",
-      ),
-    [code, perform],
-  );
-
   const submitOnEnter = (handler: () => void) => (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Enter") handler();
   };
@@ -310,131 +221,17 @@ export function SyncSection() {
   );
 
   if (!config) {
-    // A build with no relay address cannot sync with a code at all, so it is
-    // not offered: a fork that runs no relay of its own shows the Drive half
-    // alone, rather than a button that always refuses.
-    if (!hasRelay) {
-      return (
-        <section className="fk-card">
-          <h3 className="fk-card__title">Keep your notes on every browser</h3>
-          <p className="fk-card__body">
-            Connect Google Drive and the notes you write here turn up in every other browser you
-            connect, edits and deletions included. They go to a hidden folder in your own Google
-            Drive that only Fukidashi can read — there is no server of ours in between.
-          </p>
-          <button type="button" className="fk-button" disabled={busy} onClick={handleConnect}>
-            Connect Google Drive
-          </button>
-          {outcomeLine}
-        </section>
-      );
-    }
-
     return (
       <section className="fk-card">
         <h3 className="fk-card__title">Keep your notes on every browser</h3>
         <p className="fk-card__body">
-          Connect Google Drive, or use a sync code, and the notes you write here turn up in every
-          other browser you connect, edits and deletions included.
+          Connect Google Drive and the notes you write here turn up in every other browser you
+          connect, edits and deletions included. They go to a hidden folder in your own Google Drive
+          that only Fukidashi can read — there is no server of ours in between.
         </p>
-        <div className="fk-card__group">
-          <h4 className="fk-card__heading">Google Drive</h4>
-          <p className="fk-card__body">
-            The notes go to a hidden folder in your own Google Drive that only Fukidashi can read —
-            there is no server of ours in between.
-          </p>
-          <button type="button" className="fk-button" disabled={busy} onClick={handleConnect}>
-            Connect Google Drive
-          </button>
-        </div>
-        <div className="fk-card__group">
-          <h4 className="fk-card__heading">Sync code</h4>
-          <p className="fk-card__body">
-            No Google account needed. The notes travel encrypted with the code through a relay run
-            by the developer of Fukidashi, which cannot read them. Create a code here and enter it
-            on your other browsers, or enter one you already have.
-          </p>
-          <div className="fk-card__row">
-            <button type="button" className="fk-button" disabled={busy} onClick={handleCreateCode}>
-              Create a sync code
-            </button>
-            <input
-              type="text"
-              className="fk-input"
-              aria-label="Sync code"
-              placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"
-              autoComplete="off"
-              spellCheck={false}
-              value={codeEntered}
-              disabled={busy}
-              onChange={(event) => setCodeEntered(event.target.value)}
-              onKeyDown={submitOnEnter(handleJoin)}
-            />
-            <button type="button" className="fk-button" disabled={busy} onClick={handleJoin}>
-              Join
-            </button>
-          </div>
-        </div>
-        {outcomeLine}
-      </section>
-    );
-  }
-
-  if (config.backend === "relay") {
-    return (
-      <section className="fk-card">
-        <h3 className="fk-card__title">Sync code</h3>
-        <p className="fk-card__body">Connected with a sync code. {describeRelayStatus(status)}</p>
-        <div className="fk-card__row">
-          <button
-            type="button"
-            className="fk-button"
-            disabled={busy || status.state === "syncing"}
-            onClick={() => requestSyncNow()}
-          >
-            Sync now
-          </button>
-          <button
-            type="button"
-            className="fk-button"
-            disabled={busy || code === null}
-            onClick={() => setCodeShown((shown) => !shown)}
-          >
-            {codeShown ? "Hide code" : "Show code"}
-          </button>
-          <button
-            type="button"
-            className="fk-button"
-            disabled={busy}
-            onClick={handleDisconnectRelay}
-          >
-            Disconnect
-          </button>
-          {deleteCopyField("Also delete the notes on the relay")}
-        </div>
-        {codeShown && code !== null && (
-          <div className="fk-card__group">
-            <h4 className="fk-card__heading">Your sync code</h4>
-            <p className="fk-card__body">
-              Enter it on another browser to sync the same notes there. Anyone who has it can read
-              and change the notes, so treat it as you would a password — and keep a copy: a lost
-              code cannot be recovered.
-            </p>
-            <div className="fk-card__row">
-              <code className="fk-code">{code}</code>
-              <button type="button" className="fk-button" disabled={busy} onClick={handleCopyCode}>
-                Copy
-              </button>
-            </div>
-          </div>
-        )}
-        <div className="fk-card__group">
-          <p className="fk-card__body fk-card__body--last">
-            The notes are encrypted with the code before they leave this browser. The relay, run by
-            the developer of Fukidashi, holds only what it cannot read, and lets go of notes nobody
-            has synced for 90 days.
-          </p>
-        </div>
+        <button type="button" className="fk-button" disabled={busy} onClick={handleConnect}>
+          Connect Google Drive
+        </button>
         {outcomeLine}
       </section>
     );

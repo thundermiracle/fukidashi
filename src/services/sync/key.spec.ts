@@ -62,11 +62,4 @@ describe("the sync key", () => {
     // take the encryption off, without the passphrase all over again.
     await expect(loadSyncKey()).resolves.toEqual(KEY);
   });
-
-  it("keeps a key derived from a sync code as well", async () => {
-    const fromCode = { kdf: { name: "HKDF-SHA256" as const }, key: "a2V5" };
-    await saveSyncKey(fromCode);
-
-    await expect(loadSyncKey()).resolves.toEqual(fromCode);
-  });
 });
