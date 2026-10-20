@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Note } from "@/core";
 import { FOCUS_NOTE, PING } from "@/services/messages";
+import { REVIEW_AFTER_NOTES } from "@/services/review";
 import { saveSyncConfig, saveSyncStatus } from "@/services/sync";
 import { createFakeChromeI18n } from "@/testing/fakeChromeI18n";
 import { createFakeChromeStorage } from "@/testing/fakeChromeStorage";
@@ -77,7 +78,7 @@ beforeEach(async () => {
   vi.stubGlobal("chrome", {
     ...storage.chrome,
     ...createFakeChromeI18n().chrome,
-    runtime: { openOptionsPage },
+    runtime: { id: "fukidashi-id", openOptionsPage },
     tabs: {
       query: queryTabs,
       create: createTab,
@@ -297,6 +298,47 @@ describe("a page that cannot take notes yet", () => {
       "Notes can't be added to this page",
     );
     expect(container.querySelector(".fk-notice")).toBeNull();
+  });
+});
+
+describe("asking for a rating", () => {
+  async function keepNotes(count: number) {
+    await storage.chrome.storage.local.set({
+      [`fukidashi:notes:${OTHER_PAGE}`]: Array.from({ length: count }, (_, index) =>
+        makeNote(`kept-${index}`, "kept", index),
+      ),
+    });
+  }
+
+  it("waits until the user has kept enough notes to judge by", async () => {
+    await renderPopup();
+
+    expect(container.querySelector(".fk-review")).toBeNull();
+  });
+
+  it("asks once there are enough, and takes a yes to the store", async () => {
+    await keepNotes(REVIEW_AFTER_NOTES);
+    await renderPopup();
+    await click(buttonLabelled("Rate it"));
+
+    expect(createTab).toHaveBeenCalledWith({
+      url: "https://chromewebstore.google.com/detail/fukidashi-id/reviews",
+    });
+    expect(storage.data["fukidashi:review"]).toEqual({ answeredAt: expect.any(Number) });
+    expect(window.close).toHaveBeenCalled();
+  });
+
+  it("never asks again once turned down", async () => {
+    await keepNotes(REVIEW_AFTER_NOTES);
+    await renderPopup();
+    await click(container.querySelector(".fk-review .fk-icon-button"));
+
+    expect(container.querySelector(".fk-review")).toBeNull();
+
+    await act(async () => root?.unmount());
+    await renderPopup();
+
+    expect(container.querySelector(".fk-review")).toBeNull();
   });
 });
 

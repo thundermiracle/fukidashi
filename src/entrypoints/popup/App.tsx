@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import logo from "@/assets/fukidashi.png";
-import { ArrowLeftIcon, BubbleIcon, ExternalLinkIcon, GearIcon } from "@/components/icons";
+import {
+  ArrowLeftIcon,
+  BubbleIcon,
+  CloseIcon,
+  ExternalLinkIcon,
+  GearIcon,
+} from "@/components/icons";
 import { NoteList } from "@/components/NoteList";
 import { SiteList } from "@/components/SiteList";
 import { ToggleSwitch } from "@/components/ToggleSwitch";
@@ -19,6 +25,7 @@ import { setPendingFocus } from "@/services/focus";
 import { formatAge, t, tCount } from "@/services/i18n";
 import { pingPage, requestFocusNote } from "@/services/messages";
 import { deleteNote, loadAllPageNotes, watchAllNotes } from "@/services/notes";
+import { answerReview, loadReviewAnswered, REVIEW_AFTER_NOTES, reviewUrl } from "@/services/review";
 import { loadSettings, saveSettings } from "@/services/settings";
 import {
   DEFAULT_SYNC_STATUS,
@@ -88,17 +95,20 @@ function App() {
   const [syncConfig, setSyncConfig] = useState<SyncConfig | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(DEFAULT_SYNC_STATUS);
   const [reach, setReach] = useState<PageReach>("ready");
+  /** Taken as answered until the stored answer says otherwise, so the ask never flickers. */
+  const [reviewAnswered, setReviewAnswered] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
         const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        const [storedPages, settings, config, status, pageReach] = await Promise.all([
+        const [storedPages, settings, config, status, pageReach, answered] = await Promise.all([
           loadAllPageNotes(),
           loadSettings(),
           loadSyncConfig(),
           loadSyncStatus(),
           reachOf(activeTab),
+          loadReviewAnswered(),
         ]);
 
         setTabId(activeTab?.id ?? null);
@@ -108,6 +118,7 @@ function App() {
         setSyncConfig(config);
         setSyncStatus(status);
         setReach(pageReach);
+        setReviewAnswered(answered);
       } catch (error) {
         console.error("Fukidashi: could not read the stored notes", error);
       } finally {
@@ -127,6 +138,8 @@ function App() {
   const sites = useMemo(() => groupBySite(pages), [pages]);
   const totalNotes = pages.reduce((total, page) => total + page.notes.length, 0);
   const sync = describeSync(syncStatus);
+  // Someone who has kept this many notes knows whether it is worth a rating.
+  const asksForReview = !reviewAnswered && totalNotes >= REVIEW_AFTER_NOTES;
 
   // One page's notes are listed either because it is the page in front of the
   // user, or because they picked it out of the site list.
@@ -173,6 +186,16 @@ function App() {
   );
 
   const handleDeleteNote = useCallback((note: Note) => deleteNote(listedUrl, note.id), [listedUrl]);
+
+  const rate = useCallback(async () => {
+    await answerReview();
+    openPage(reviewUrl());
+  }, [openPage]);
+
+  const declineReview = useCallback(async () => {
+    setReviewAnswered(true);
+    await answerReview();
+  }, []);
 
   const reloadPage = useCallback(() => {
     if (tabId !== null) chrome.tabs.reload(tabId);
@@ -325,6 +348,24 @@ function App() {
       )}
 
       <div className="fk-popup__body">{renderBody()}</div>
+
+      {asksForReview && (
+        <div className="fk-review">
+          <p className="fk-review__text">{t("reviewAsk")}</p>
+          <button type="button" className="fk-review__rate" onClick={rate}>
+            {t("reviewRate")}
+          </button>
+          <button
+            type="button"
+            className="fk-icon-button"
+            title={t("close")}
+            aria-label={t("close")}
+            onClick={declineReview}
+          >
+            <CloseIcon />
+          </button>
+        </div>
+      )}
 
       <footer className="fk-popup__footer">
         <ToggleSwitch

@@ -363,6 +363,40 @@
   line-height: 1.5;
 }
 
+/* --- the one ask for a rating ------------------------------------------- */
+
+.fk-review {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px 8px 14px;
+  border-top: 1px solid var(--fk-divider);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.fk-review__text {
+  flex: 1;
+  margin: 0;
+  color: var(--fk-text-muted);
+}
+
+.fk-review__rate {
+  flex: none;
+  padding: 4px 10px;
+  border: none;
+  border-radius: 5px;
+  background: var(--fk-accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.fk-review__rate:hover {
+  background: #1a6fc4;
+}
+
 /* --- footer ------------------------------------------------------------- */
 
 .fk-popup__footer {
