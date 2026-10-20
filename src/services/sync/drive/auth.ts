@@ -38,6 +38,13 @@ const SIGNED_OUT_ERRORS = [
 /** Thrown when Google answered, but not with a token. */
 export class DriveAuthError extends Error {}
 
+/**
+ * Thrown when the user turned the sign-in down, on Google's page or by
+ * closing the window. The message is what Google or the browser said; the
+ * settings page tells the user in words of its own.
+ */
+export class SignInCancelledError extends DriveAuthError {}
+
 export interface AuthRequest {
   url: string;
   /** Echoed back by Google; an answer carrying anything else is not to this request. */
@@ -89,7 +96,7 @@ export function readAuthResponse(
 
   const error = params.get("error");
   if (error && SIGNED_OUT_ERRORS.includes(error)) throw new SyncSignedOutError();
-  if (error === "access_denied") throw new DriveAuthError("The sign-in was cancelled.");
+  if (error === "access_denied") throw new SignInCancelledError("The sign-in was cancelled.");
   if (error) throw new DriveAuthError(`Google refused the sign-in (${error}).`);
 
   const accessToken = params.get("access_token");
@@ -147,7 +154,7 @@ export async function signInToDrive(
   } catch (error) {
     // The browser rejects when the user closes the window, which is the
     // same thing as Google answering access_denied.
-    throw new DriveAuthError(
+    throw new SignInCancelledError(
       error instanceof Error && error.message ? error.message : "The sign-in was cancelled.",
     );
   }

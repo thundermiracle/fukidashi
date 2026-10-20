@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { markdownFileName, renderMarkdown } from "./markdown";
+import { type MarkdownWords, markdownFileName, renderMarkdown } from "./markdown";
 import type { SyncPage, SyncPayload } from "./sync";
 import type { Note } from "./types";
 
@@ -166,6 +166,34 @@ describe("the Obsidian flavor", () => {
     const markdown = renderMarkdown(payloadOf(page([makeNote({ id: "a" })])), "obsidian");
 
     expect(markdown.trimEnd().endsWith("> ==the quoted text==")).toBe(true);
+  });
+});
+
+describe("an export in another language", () => {
+  const words: MarkdownWords = {
+    title: "Fukidashi のメモ",
+    colors: { yellow: "黄色", green: "緑", blue: "青", pink: "ピンク", purple: "紫" },
+    summary: (notes, pages, day) => `${pages}ページ・メモ${notes}件（${day} に書き出し）`,
+  };
+
+  it("takes the title and the summary from the words it is given", () => {
+    const markdown = renderMarkdown(payloadOf(page([makeNote({ id: "a" })])), "notion", words);
+
+    expect(
+      markdown.startsWith("# Fukidashi のメモ\n\n1ページ・メモ1件（2026-03-04 に書き出し）"),
+    ).toBe(true);
+  });
+
+  it("names the callouts in it, but keeps what Obsidian reads", () => {
+    const markdown = renderMarkdown(
+      payloadOf(page([makeNote({ id: "a", color: "green" })])),
+      "obsidian",
+      words,
+    );
+
+    expect(markdown).toContain("> [!quote] 緑");
+    expect(markdown).toContain("notes: 1");
+    expect(markdown).toContain("tags:\n  - fukidashi");
   });
 });
 

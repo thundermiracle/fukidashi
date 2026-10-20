@@ -1,4 +1,5 @@
-import { formatRelativeTime, type Note } from "@/core";
+import type { Note } from "@/core";
+import { formatAge, t } from "@/services/i18n";
 import { TrashIcon } from "./icons";
 
 interface NoteListProps {
@@ -18,13 +19,13 @@ export function NoteList({ notes, onSelect, onDelete }: NoteListProps) {
             <span className="fk-list__content">
               <span className="fk-list__quote">{note.anchor.exact}</span>
               {note.comment && <span className="fk-list__comment">{note.comment}</span>}
-              <span className="fk-list__time">{formatRelativeTime(note.updatedAt)}</span>
+              <span className="fk-list__time">{formatAge(note.updatedAt)}</span>
             </span>
           </button>
           <button
             type="button"
             className="fk-icon-button fk-list__delete"
-            title="Delete note"
+            title={t("deleteNote")}
             onClick={() => onDelete(note)}
           >
             <TrashIcon />

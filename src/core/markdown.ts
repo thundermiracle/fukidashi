@@ -21,14 +21,30 @@ export const MARKDOWN_FLAVORS = ["notion", "obsidian"] as const;
 
 export type MarkdownFlavor = (typeof MARKDOWN_FLAVORS)[number];
 
-const DOCUMENT_TITLE = "Fukidashi notes";
+/**
+ * The words an export is written in, for the page to give in the user's
+ * language. The frontmatter keys and the callout type are not among them:
+ * Obsidian reads those, not the user.
+ */
+export interface MarkdownWords {
+  title: string;
+  /** The callout title an Obsidian note gets, after the color it was given. */
+  colors: Record<NoteColor, string>;
+  /** The Notion flavor's line under the title: how much, and on which day. */
+  summary: (noteCount: number, pageCount: number, day: string) => string;
+}
 
-const COLOR_LABELS: Record<NoteColor, string> = {
-  yellow: "Yellow",
-  green: "Green",
-  blue: "Blue",
-  pink: "Pink",
-  purple: "Purple",
+export const ENGLISH_MARKDOWN_WORDS: MarkdownWords = {
+  title: "Fukidashi notes",
+  colors: {
+    yellow: "Yellow",
+    green: "Green",
+    blue: "Blue",
+    pink: "Pink",
+    purple: "Purple",
+  },
+  summary: (noteCount, pageCount, day) =>
+    `${formatCount(noteCount, "note")} on ${formatCount(pageCount, "page")}, exported on ${day}.`,
 };
 
 /** What a Markdown export is called, dated and named after the app it is for. */
@@ -62,15 +78,21 @@ function notionNote(note: Note): string {
 }
 
 /** The quote and its memo as one callout, titled with the color it was given. */
-function obsidianNote(note: Note): string {
-  const lines = [`> [!quote] ${COLOR_LABELS[note.color]}`, `> ==${oneLine(note.anchor.exact)}==`];
+function obsidianNote(note: Note, words: MarkdownWords): string {
+  const lines = [`> [!quote] ${words.colors[note.color]}`, `> ==${oneLine(note.anchor.exact)}==`];
   if (memo(note)) lines.push(">", ...prefixLines(memo(note), ">"));
   return lines.join("\n");
 }
 
-function pageSection(page: SyncPage, notes: Note[], flavor: MarkdownFlavor): string {
+function pageSection(
+  page: SyncPage,
+  notes: Note[],
+  flavor: MarkdownFlavor,
+  words: MarkdownWords,
+): string {
   const heading = oneLine(page.title?.text ?? formatPageUrl(page.url));
-  const write = flavor === "obsidian" ? obsidianNote : notionNote;
+  const write = (note: Note) =>
+    flavor === "obsidian" ? obsidianNote(note, words) : notionNote(note);
 
   return [`## ${heading}`, `<${page.url}>`, ...notes.map(write)].join("\n\n");
 }
@@ -93,7 +115,11 @@ function frontmatter(exportedAt: number, noteCount: number, pageCount: number): 
  * read back in here. Deleted notes are left out — they are stored only so a
  * sync cannot resurrect them — and so are the pages nothing is left on.
  */
-export function renderMarkdown(payload: SyncPayload, flavor: MarkdownFlavor): string {
+export function renderMarkdown(
+  payload: SyncPayload,
+  flavor: MarkdownFlavor,
+  words: MarkdownWords = ENGLISH_MARKDOWN_WORDS,
+): string {
   const pages = payload.pages
     .map((page) => ({ page, notes: inPageOrder(liveNotes(page.notes)) }))
     .filter(({ notes }) => notes.length > 0);
@@ -101,13 +127,13 @@ export function renderMarkdown(payload: SyncPayload, flavor: MarkdownFlavor): st
 
   const blocks =
     flavor === "obsidian"
-      ? [frontmatter(payload.exportedAt, noteCount, pages.length), `# ${DOCUMENT_TITLE}`]
+      ? [frontmatter(payload.exportedAt, noteCount, pages.length), `# ${words.title}`]
       : [
-          `# ${DOCUMENT_TITLE}`,
-          `${formatCount(noteCount, "note")} on ${formatCount(pages.length, "page")}, exported on ${formatIsoDay(payload.exportedAt)}.`,
+          `# ${words.title}`,
+          words.summary(noteCount, pages.length, formatIsoDay(payload.exportedAt)),
         ];
 
-  for (const { page, notes } of pages) blocks.push(pageSection(page, notes, flavor));
+  for (const { page, notes } of pages) blocks.push(pageSection(page, notes, flavor, words));
 
   return `${blocks.join("\n\n")}\n`;
 }

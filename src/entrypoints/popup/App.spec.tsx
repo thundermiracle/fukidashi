@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Note } from "@/core";
 import { saveSyncConfig, saveSyncStatus } from "@/services/sync";
+import { createFakeChromeI18n } from "@/testing/fakeChromeI18n";
 import { createFakeChromeStorage } from "@/testing/fakeChromeStorage";
 import App from "./App";
 
@@ -69,6 +70,7 @@ beforeEach(async () => {
 
   vi.stubGlobal("chrome", {
     ...storage.chrome,
+    ...createFakeChromeI18n().chrome,
     runtime: { openOptionsPage },
     tabs: {
       query: vi.fn(async () => [{ id: TAB_ID, url: CURRENT_PAGE }]),
@@ -231,6 +233,24 @@ describe("popup", () => {
 
     expect(openOptionsPage).toHaveBeenCalled();
     expect(window.close).toHaveBeenCalled();
+  });
+});
+
+describe("in a Japanese browser", () => {
+  beforeEach(() => {
+    vi.stubGlobal("chrome", { ...chrome, ...createFakeChromeI18n("ja").chrome });
+  });
+
+  it("speaks Japanese, counts included", async () => {
+    await renderPopup();
+    await click(buttonLabelled("すべてのページ"));
+
+    expect(buttonLabelled("このページ")).toBeDefined();
+    expect(container.querySelector(".fk-popup__page")?.textContent).toBe("2ページ・メモ3件");
+    expect(textsOf(".fk-list__time")).toEqual([
+      expect.stringContaining("メモ2件"),
+      expect.stringContaining("メモ1件"),
+    ]);
   });
 });
 

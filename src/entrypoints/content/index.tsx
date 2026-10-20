@@ -1,5 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { keepUntranslated, UI_ATTRIBUTE } from "@/core";
+import { t } from "@/services/i18n";
 import { ContentApp } from "./ContentApp";
 import "./ui.css";
 
@@ -16,6 +17,8 @@ export default defineContentScript({
       // Keeps the page from reacting to typing inside the note composer.
       isolateEvents: true,
       onMount: (container) => {
+        // The page's own language would otherwise pick how the panels' text is shaped.
+        container.lang = t("lang");
         const root = createRoot(container);
         root.render(<ContentApp />);
         return root;

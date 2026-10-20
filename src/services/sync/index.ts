@@ -50,6 +50,7 @@ export {
   isTokenFresh,
   loadDriveToken,
   renewDriveToken,
+  SignInCancelledError,
   saveDriveToken,
   signInToDrive,
   signOutOfDrive,

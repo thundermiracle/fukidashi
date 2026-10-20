@@ -19,6 +19,7 @@ import {
   saveSyncKey,
   saveSyncStatus,
 } from "@/services/sync";
+import { createFakeChromeI18n } from "@/testing/fakeChromeI18n";
 import { createFakeChromeIdentity } from "@/testing/fakeChromeIdentity";
 import { createFakeChromeStorage } from "@/testing/fakeChromeStorage";
 import { createFakeDrive } from "@/testing/fakeDrive";
@@ -194,7 +195,12 @@ beforeEach(async () => {
   identity = createFakeChromeIdentity();
   drive = createFakeDrive();
   sendMessage = vi.fn(async () => undefined);
-  vi.stubGlobal("chrome", { ...storage.chrome, ...identity.chrome, runtime: { sendMessage } });
+  vi.stubGlobal("chrome", {
+    ...storage.chrome,
+    ...identity.chrome,
+    ...createFakeChromeI18n().chrome,
+    runtime: { sendMessage },
+  });
   vi.stubGlobal("fetch", drive.fetch);
   vi.stubEnv("WXT_GOOGLE_CLIENT_ID", "client-1");
 
@@ -307,6 +313,14 @@ describe("the settings page", () => {
 
     expect(outcome()).toBe("This file was written by a newer version of Fukidashi.");
   });
+
+  it("refuses a file that is JSON but not an export", async () => {
+    await renderPage();
+    await pickFile(JSON.stringify({ notes: [] }));
+
+    await expect(loadNotes(CURRENT_PAGE)).resolves.toHaveLength(1);
+    expect(outcome()).toBe("This file is not a Fukidashi export, or part of it is damaged.");
+  });
 });
 
 describe("syncing with Google Drive", () => {
@@ -340,6 +354,16 @@ describe("syncing with Google Drive", () => {
 
     expect(syncOutcome()).toBe("The sign-in was cancelled.");
     expect(syncCard().querySelector(".fk-card__outcome--failed")).not.toBeNull();
+    await expect(loadSyncConfig()).resolves.toBeNull();
+  });
+
+  it("calls a sign-in window closed by the user cancelled, whatever the browser said", async () => {
+    identity.refuse(new Error("The user did not approve access."));
+    await renderPage();
+
+    await click(buttonLabelled("Connect Google Drive"));
+
+    expect(syncOutcome()).toBe("The sign-in was cancelled.");
     await expect(loadSyncConfig()).resolves.toBeNull();
   });
 

@@ -5,10 +5,8 @@ import { NoteList } from "@/components/NoteList";
 import { SiteList } from "@/components/SiteList";
 import { ToggleSwitch } from "@/components/ToggleSwitch";
 import {
-  formatCount,
   formatPagePath,
   formatPageUrl,
-  formatRelativeTime,
   groupBySite,
   inPageOrder,
   type Note,
@@ -17,6 +15,7 @@ import {
   pageHost,
 } from "@/core";
 import { setPendingFocus } from "@/services/focus";
+import { formatAge, t, tCount } from "@/services/i18n";
 import { requestFocusNote } from "@/services/messages";
 import { deleteNote, loadAllPageNotes, watchAllNotes } from "@/services/notes";
 import { loadSettings, saveSettings } from "@/services/settings";
@@ -38,21 +37,21 @@ function notesOf(pages: PageNotes[], url: string): Note[] {
 function describeSync(status: SyncStatus): { text: string; needsAttention: boolean } {
   switch (status.state) {
     case "syncing":
-      return { text: "Syncing…", needsAttention: false };
+      return { text: t("syncing"), needsAttention: false };
     case "signedOut":
-      return { text: "Sign in to sync", needsAttention: true };
+      return { text: t("signInToSync"), needsAttention: true };
     case "wrongPassphrase":
-      return { text: "Enter passphrase to sync", needsAttention: true };
+      return { text: t("enterPassphraseToSync"), needsAttention: true };
     case "error":
-      return { text: "Sync failed", needsAttention: true };
+      return { text: t("syncFailed"), needsAttention: true };
     case "outdated":
-      return { text: "Update to sync", needsAttention: true };
+      return { text: t("updateToSync"), needsAttention: true };
     default:
       return {
         text:
           status.lastSyncedAt > 0
-            ? `Synced ${formatRelativeTime(status.lastSyncedAt)}`
-            : "Not synced yet",
+            ? t("syncedAgo", { age: formatAge(status.lastSyncedAt) })
+            : t("notSyncedYet"),
         needsAttention: false,
       };
   }
@@ -165,13 +164,16 @@ function App() {
   const subtitle = () => {
     if (openedUrl) return formatPagePath(openedUrl);
     if (!showsOnePage) {
-      return `${formatCount(totalNotes, "note")} on ${formatCount(pages.length, "page")}`;
+      return t("notesOnPages", {
+        notes: tCount("noteCount", totalNotes),
+        pages: tCount("pageCount", pages.length),
+      });
     }
-    return currentUrl ? formatPageUrl(currentUrl) : "No page open";
+    return currentUrl ? formatPageUrl(currentUrl) : t("noPageOpen");
   };
 
   const renderBody = () => {
-    if (isLoading) return <p className="fk-popup__status">Loading…</p>;
+    if (isLoading) return <p className="fk-popup__status">{t("loading")}</p>;
 
     if (showsOnePage) {
       return listedNotes.length > 0 ? (
@@ -183,10 +185,8 @@ function App() {
       ) : (
         <div className="fk-empty">
           <BubbleIcon className="fk-empty__icon" />
-          <p className="fk-empty__title">No notes on this page yet</p>
-          <p className="fk-empty__hint">
-            Select any text on the page, then pick a color or write a note.
-          </p>
+          <p className="fk-empty__title">{t("noNotesOnPage")}</p>
+          <p className="fk-empty__hint">{t("noNotesOnPageHint")}</p>
         </div>
       );
     }
@@ -196,8 +196,8 @@ function App() {
     ) : (
       <div className="fk-empty">
         <BubbleIcon className="fk-empty__icon" />
-        <p className="fk-empty__title">No notes anywhere yet</p>
-        <p className="fk-empty__hint">Every page you annotate is collected here.</p>
+        <p className="fk-empty__title">{t("noNotesAnywhere")}</p>
+        <p className="fk-empty__hint">{t("noNotesAnywhereHint")}</p>
       </div>
     );
   };
@@ -209,7 +209,7 @@ function App() {
           <button
             type="button"
             className="fk-icon-button fk-popup__back"
-            title="Back to all pages"
+            title={t("backToAllPages")}
             onClick={() => setOpenedUrl(null)}
           >
             <ArrowLeftIcon />
@@ -229,8 +229,8 @@ function App() {
           <button
             type="button"
             className="fk-icon-button"
-            title="Open this page"
-            aria-label={`Open ${openedUrl}`}
+            title={t("openThisPage")}
+            aria-label={t("openUrl", { url: openedUrl })}
             onClick={() => openPage(openedUrl)}
           >
             <ExternalLinkIcon />
@@ -239,8 +239,8 @@ function App() {
         <button
           type="button"
           className="fk-icon-button"
-          title="Settings"
-          aria-label="Settings"
+          title={t("settings")}
+          aria-label={t("settings")}
           onClick={openSettings}
         >
           <GearIcon />
@@ -256,7 +256,7 @@ function App() {
             aria-pressed={tab === "page"}
             onClick={() => showTab("page")}
           >
-            This page
+            {t("tabThisPage")}
           </button>
           <button
             type="button"
@@ -264,7 +264,7 @@ function App() {
             aria-pressed={tab === "sites"}
             onClick={() => showTab("sites")}
           >
-            All pages
+            {t("tabAllPages")}
           </button>
         </div>
       )}
@@ -274,7 +274,7 @@ function App() {
       <footer className="fk-popup__footer">
         <ToggleSwitch
           id="enabled"
-          label="Show highlights"
+          label={t("showHighlights")}
           checked={enabled}
           onChange={handleToggle}
         />
@@ -282,7 +282,7 @@ function App() {
           <button
             type="button"
             className={`fk-popup__sync${sync.needsAttention ? " fk-popup__sync--attention" : ""}`}
-            title="Sync settings"
+            title={t("syncSettings")}
             onClick={openSettings}
           >
             {sync.text}

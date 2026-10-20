@@ -2,14 +2,17 @@ import { useCallback, useEffect, useState } from "react";
 import logo from "@/assets/fukidashi.png";
 import { DownloadIcon, UploadIcon } from "@/components/icons";
 import {
-  formatCount,
   liveNotes,
   MARKDOWN_FLAVORS,
   type MarkdownFlavor,
+  type MarkdownWords,
   markdownFileName,
   type PageNotes,
   renderMarkdown,
+  SyncPayloadError,
+  SyncVersionError,
 } from "@/core";
+import { t, tCount } from "@/services/i18n";
 import { loadAllPageNotes, watchAllNotes } from "@/services/notes";
 import {
   buildSyncPayload,
@@ -26,6 +29,38 @@ const FLAVOR_LABELS: Record<MarkdownFlavor, string> = {
   notion: "Notion",
   obsidian: "Obsidian",
 };
+
+/** The export's words in the user's language, gathered when one is written. */
+function markdownWords(): MarkdownWords {
+  return {
+    title: t("exportDocumentTitle"),
+    colors: {
+      yellow: t("exportColorYellow"),
+      green: t("exportColorGreen"),
+      blue: t("exportColorBlue"),
+      pink: t("exportColorPink"),
+      purple: t("exportColorPurple"),
+    },
+    summary: (noteCount, pageCount, day) =>
+      t("exportSummary", {
+        notes: tCount("noteCount", noteCount),
+        pages: tCount("pageCount", pageCount),
+        day,
+      }),
+  };
+}
+
+/**
+ * Why a file would not come in. The payload's own errors are written in
+ * English, as core code has no language to write them in, so they are put
+ * into the user's words here.
+ */
+function whyImportFailed(error: unknown): string {
+  if (error instanceof SyntaxError) return t("importNotJson");
+  if (error instanceof SyncVersionError) return t("importNewerVersion");
+  if (error instanceof SyncPayloadError) return t("importNotExport");
+  return error instanceof Error ? error.message : t("importFailed");
+}
 
 /** Hands the browser a file to save, the only way an extension page can. */
 function download(name: string, text: string, type: string): void {
@@ -60,10 +95,13 @@ function App() {
         "application/json",
       );
 
-      setOutcome({ kind: "done", message: `Saved ${formatCount(payload.pages.length, "page")}.` });
+      setOutcome({
+        kind: "done",
+        message: t("savedPages", { pages: tCount("pageCount", payload.pages.length) }),
+      });
     } catch (error) {
       console.error("Fukidashi: could not export the notes", error);
-      setOutcome({ kind: "failed", message: "Could not save the notes." });
+      setOutcome({ kind: "failed", message: t("exportFailed") });
     } finally {
       setBusy(false);
     }
@@ -75,7 +113,7 @@ function App() {
       const payload = await buildSyncPayload();
       download(
         markdownFileName(payload.exportedAt, flavor),
-        renderMarkdown(payload, flavor),
+        renderMarkdown(payload, flavor, markdownWords()),
         "text/markdown",
       );
 
@@ -87,11 +125,14 @@ function App() {
       );
       setOutcome({
         kind: "done",
-        message: `Saved ${formatCount(written, "note")} for ${FLAVOR_LABELS[flavor]}.`,
+        message: t("savedNotesFor", {
+          notes: tCount("noteCount", written),
+          app: FLAVOR_LABELS[flavor],
+        }),
       });
     } catch (error) {
       console.error("Fukidashi: could not write the notes as Markdown", error);
-      setOutcome({ kind: "failed", message: "Could not write the notes as Markdown." });
+      setOutcome({ kind: "failed", message: t("markdownFailed") });
     } finally {
       setBusy(false);
     }
@@ -103,14 +144,11 @@ function App() {
       const pageCount = await importSyncPayload(await file.text());
       setOutcome({
         kind: "done",
-        message: `Merged ${formatCount(pageCount, "page")} from the file.`,
+        message: t("mergedPages", { pages: tCount("pageCount", pageCount) }),
       });
     } catch (error) {
       console.error("Fukidashi: could not import the notes", error);
-      setOutcome({
-        kind: "failed",
-        message: error instanceof Error ? error.message : "Could not read that file.",
-      });
+      setOutcome({ kind: "failed", message: whyImportFailed(error) });
     } finally {
       setBusy(false);
     }
@@ -121,40 +159,37 @@ function App() {
       <header className="fk-page__header">
         <img src={logo} className="fk-page__logo" alt="" />
         <div>
-          <h1 className="fk-page__title">Fukidashi settings</h1>
+          <h1 className="fk-page__title">{t("settingsTitle")}</h1>
           <p className="fk-page__subtitle">
-            {`${formatCount(noteCount, "note")} on ${formatCount(pages.length, "page")}`}
+            {t("notesOnPages", {
+              notes: tCount("noteCount", noteCount),
+              pages: tCount("pageCount", pages.length),
+            })}
           </p>
         </div>
       </header>
 
-      <h2 className="fk-section">Sync</h2>
+      <h2 className="fk-section">{t("sectionSync")}</h2>
 
       <SyncSection />
 
-      <h2 className="fk-section">Backup</h2>
+      <h2 className="fk-section">{t("sectionBackup")}</h2>
 
       <section className="fk-card">
-        <h3 className="fk-card__title">Save your notes to a file</h3>
-        <p className="fk-card__body">
-          Writes every note you have, including the pages you are not looking at, to one JSON file.
-        </p>
+        <h3 className="fk-card__title">{t("exportTitle")}</h3>
+        <p className="fk-card__body">{t("exportBody")}</p>
         <button type="button" className="fk-button" disabled={busy} onClick={handleExport}>
           <DownloadIcon />
-          Export
+          {t("exportButton")}
         </button>
       </section>
 
       <section className="fk-card">
-        <h3 className="fk-card__title">Read notes back from a file</h3>
-        <p className="fk-card__body">
-          Adds what the file holds to what is already here — nothing on this device is replaced. A
-          note edited in two places keeps whichever version was written last, and a note deleted on
-          either side stays deleted.
-        </p>
+        <h3 className="fk-card__title">{t("importTitle")}</h3>
+        <p className="fk-card__body">{t("importBody")}</p>
         <label className="fk-button">
           <UploadIcon />
-          Import
+          {t("importButton")}
           <input
             type="file"
             accept="application/json,.json"
@@ -170,18 +205,14 @@ function App() {
         </label>
       </section>
 
-      <h2 className="fk-section">Markdown</h2>
+      <h2 className="fk-section">{t("sectionMarkdown")}</h2>
 
       <section className="fk-card">
-        <h3 className="fk-card__title">Take your notes to a notes app</h3>
-        <p className="fk-card__body">
-          One Markdown file holding every note, under the page it was taken on. Notion reads plain
-          Markdown; Obsidian gets the properties, callouts and highlights it understands. This one
-          is written to be read — only the file above reads back in.
-        </p>
+        <h3 className="fk-card__title">{t("markdownTitle")}</h3>
+        <p className="fk-card__body">{t("markdownBody")}</p>
         <div className="fk-card__row">
           <label className="fk-field" htmlFor="fk-flavor">
-            Format
+            {t("markdownFormat")}
             <select
               id="fk-flavor"
               className="fk-select"
@@ -203,7 +234,7 @@ function App() {
             onClick={handleExportMarkdown}
           >
             <DownloadIcon />
-            Export Markdown
+            {t("markdownExportButton")}
           </button>
         </div>
       </section>

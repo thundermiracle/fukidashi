@@ -1,8 +1,9 @@
 import { type KeyboardEvent, useCallback, useEffect, useState } from "react";
-import { formatRelativeTime } from "@/core";
+import { formatAge, t } from "@/services/i18n";
 import { requestSyncNow } from "@/services/messages";
 import {
   connectDrive,
+  DataCollectionRefusedError,
   DEFAULT_SYNC_STATUS,
   disconnectDrive,
   loadDriveToken,
@@ -10,6 +11,7 @@ import {
   loadSyncKey,
   loadSyncStatus,
   removeSyncPassphrase,
+  SignInCancelledError,
   type SyncConfig,
   SyncPassphraseError,
   SyncSignedOutError,
@@ -26,13 +28,11 @@ type Outcome = { kind: "done" | "failed"; message: string };
 function describeDriveStatus(status: SyncStatus, encrypted: boolean): string {
   switch (status.state) {
     case "signedOut":
-      return "Google needs you to sign in again before anything can sync.";
+      return t("driveSignedOut");
     case "wrongPassphrase":
-      return encrypted
-        ? "The passphrase on this browser is not the one the copy in Drive was encrypted with. Enter that one to keep syncing."
-        : "The copy in Drive is encrypted. Enter its passphrase to keep syncing.";
+      return encrypted ? t("driveWrongPassphrase") : t("driveNeedsPassphrase");
     case "outdated":
-      return "The copy in Drive was written by a newer version of Fukidashi. Update the extension to keep syncing.";
+      return t("driveOutdated");
     default:
       return describeCommonStatus(status);
   }
@@ -41,29 +41,34 @@ function describeDriveStatus(status: SyncStatus, encrypted: boolean): string {
 function describeCommonStatus(status: SyncStatus): string {
   switch (status.state) {
     case "syncing":
-      return "Syncing…";
+      return t("syncing");
     case "error":
-      return `Could not sync: ${(status.error ?? "something went wrong").replace(/\.$/, "")}. Fukidashi keeps trying.`;
+      // The reason is a sentence of its own; the message closes it.
+      return t("syncCouldNot", {
+        error: (status.error ?? t("syncSomethingWrong")).replace(/[.。]$/, ""),
+      });
     default:
       return status.lastSyncedAt > 0
-        ? `Last synced ${formatRelativeTime(status.lastSyncedAt)}.`
-        : "Not synced yet.";
+        ? t("lastSyncedAgo", { age: formatAge(status.lastSyncedAt) })
+        : t("notSyncedYetSentence");
   }
+}
+
+function whyConnectFailed(error: unknown): string {
+  if (error instanceof SignInCancelledError) return t("signInCancelled");
+  if (error instanceof DataCollectionRefusedError) return t("dataCollectionRefused");
+  return messageOf(error, t("connectFailed"));
 }
 
 function whyDisconnectFailed(error: unknown): string {
-  if (error instanceof SyncSignedOutError) {
-    return "Sign in first to delete the copy, or disconnect without deleting it.";
-  }
-  return error instanceof Error ? error.message : "Could not disconnect.";
+  if (error instanceof SyncSignedOutError) return t("disconnectSignInFirst");
+  return messageOf(error, t("disconnectFailed"));
 }
 
 function whyPassphraseFailed(error: unknown, fallback: string): string {
-  if (error instanceof SyncPassphraseError) {
-    return "That is not the passphrase the copy in Drive was encrypted with.";
-  }
-  if (error instanceof SyncSignedOutError) return "Sign in first.";
-  return error instanceof Error ? error.message : fallback;
+  if (error instanceof SyncPassphraseError) return t("passphraseNotThatOne");
+  if (error instanceof SyncSignedOutError) return t("signInFirst");
+  return messageOf(error, fallback);
 }
 
 function messageOf(error: unknown, fallback: string): string {
@@ -121,14 +126,11 @@ export function SyncSection() {
 
   const handleConnect = useCallback(
     () =>
-      perform(
-        async () => {
-          const token = await connectDrive();
-          setEmail(token.email);
-          return null;
-        },
-        (error) => messageOf(error, "Could not connect Google Drive."),
-      ),
+      perform(async () => {
+        const token = await connectDrive();
+        setEmail(token.email);
+        return null;
+      }, whyConnectFailed),
     [perform],
   );
 
@@ -140,9 +142,7 @@ export function SyncSection() {
         setDeleteCopy(false);
         return {
           kind: "done",
-          message: deleteCopy
-            ? "Disconnected. The copy in Google Drive is gone; the notes here stay."
-            : "Disconnected. The copy in Google Drive stays where it is, and so do the notes here.",
+          message: deleteCopy ? t("disconnectedDeleted") : t("disconnectedKept"),
         };
       }, whyDisconnectFailed),
     [deleteCopy, perform],
@@ -157,11 +157,11 @@ export function SyncSection() {
 
   const handleSetPassphrase = useCallback(() => {
     if (passphrase === "") {
-      setOutcome({ kind: "failed", message: "Enter a passphrase." });
+      setOutcome({ kind: "failed", message: t("enterPassphrase") });
       return;
     }
     if (fresh && repeat !== passphrase) {
-      setOutcome({ kind: "failed", message: "The two passphrases differ." });
+      setOutcome({ kind: "failed", message: t("passphrasesDiffer") });
       return;
     }
     return perform(
@@ -171,12 +171,10 @@ export function SyncSection() {
         setRepeat("");
         return {
           kind: "done",
-          message: unlocking
-            ? "Passphrase accepted. Syncing again."
-            : "Encrypted. From now on the notes leave this browser encrypted, and every other browser you connect will ask for the passphrase.",
+          message: unlocking ? t("passphraseAccepted") : t("encryptedNow"),
         };
       },
-      (error) => whyPassphraseFailed(error, "Could not set the passphrase."),
+      (error) => whyPassphraseFailed(error, t("passphraseSetFailed")),
     );
   }, [passphrase, repeat, fresh, unlocking, perform]);
 
@@ -185,13 +183,9 @@ export function SyncSection() {
       perform(
         async () => {
           await removeSyncPassphrase();
-          return {
-            kind: "done",
-            message:
-              "Passphrase removed. The copy in Drive is stored as it is again — until a browser that still has the passphrase encrypts it back.",
-          };
+          return { kind: "done", message: t("passphraseRemoved") };
         },
-        (error) => whyPassphraseFailed(error, "Could not remove the passphrase."),
+        (error) => whyPassphraseFailed(error, t("passphraseRemoveFailed")),
       ),
     [perform],
   );
@@ -223,14 +217,10 @@ export function SyncSection() {
   if (!config) {
     return (
       <section className="fk-card">
-        <h3 className="fk-card__title">Keep your notes on every browser</h3>
-        <p className="fk-card__body">
-          Connect Google Drive and the notes you write here turn up in every other browser you
-          connect, edits and deletions included. They go to a hidden folder in your own Google Drive
-          that only Fukidashi can read — there is no server of ours in between.
-        </p>
+        <h3 className="fk-card__title">{t("syncIntroTitle")}</h3>
+        <p className="fk-card__body">{t("syncIntroBody")}</p>
         <button type="button" className="fk-button" disabled={busy} onClick={handleConnect}>
-          Connect Google Drive
+          {t("connectDrive")}
         </button>
         {outcomeLine}
       </section>
@@ -241,8 +231,8 @@ export function SyncSection() {
     <input
       type="password"
       className="fk-input"
-      aria-label="Passphrase"
-      placeholder="Passphrase"
+      aria-label={t("passphrase")}
+      placeholder={t("passphrase")}
       autoComplete={fresh ? "new-password" : "current-password"}
       value={passphrase}
       disabled={busy}
@@ -255,13 +245,14 @@ export function SyncSection() {
     <section className="fk-card">
       <h3 className="fk-card__title">Google Drive</h3>
       <p className="fk-card__body">
-        {email ? `Connected as ${email}. ` : "Connected. "}
-        {describeDriveStatus(status, encrypted)}
+        {email
+          ? t("connectedAs", { email, status: describeDriveStatus(status, encrypted) })
+          : t("connected", { status: describeDriveStatus(status, encrypted) })}
       </p>
       <div className="fk-card__row">
         {status.state === "signedOut" ? (
           <button type="button" className="fk-button" disabled={busy} onClick={handleConnect}>
-            Sign in
+            {t("signIn")}
           </button>
         ) : (
           <button
@@ -270,16 +261,16 @@ export function SyncSection() {
             disabled={busy || status.state === "syncing"}
             onClick={() => requestSyncNow()}
           >
-            Sync now
+            {t("syncNow")}
           </button>
         )}
         <button type="button" className="fk-button" disabled={busy} onClick={handleDisconnect}>
-          Disconnect
+          {t("disconnect")}
         </button>
-        {deleteCopyField("Also delete the copy in Google Drive")}
+        {deleteCopyField(t("alsoDeleteCopy"))}
       </div>
       <div className="fk-card__group">
-        <h4 className="fk-card__heading">Encryption</h4>
+        <h4 className="fk-card__heading">{t("encryptionHeading")}</h4>
         {unlocking ? (
           <div className="fk-card__row">
             {passphraseField}
@@ -289,39 +280,31 @@ export function SyncSection() {
               disabled={busy}
               onClick={handleSetPassphrase}
             >
-              Unlock
+              {t("unlock")}
             </button>
           </div>
         ) : encrypted ? (
           <>
-            <p className="fk-card__body">
-              Encrypted with a passphrase; every other browser you connect needs it too. Removing it
-              writes the copy in Drive back as it is — until a browser that still has the passphrase
-              encrypts it again.
-            </p>
+            <p className="fk-card__body">{t("encryptedBody")}</p>
             <button
               type="button"
               className="fk-button"
               disabled={busy}
               onClick={handleRemovePassphrase}
             >
-              Remove passphrase
+              {t("removePassphrase")}
             </button>
           </>
         ) : (
           <>
-            <p className="fk-card__body">
-              The copy in Drive holds the notes as they are. Set a passphrase and they are encrypted
-              before they leave this browser; every browser you connect will need it, and a
-              forgotten one cannot be recovered.
-            </p>
+            <p className="fk-card__body">{t("plainBody")}</p>
             <div className="fk-card__row">
               {passphraseField}
               <input
                 type="password"
                 className="fk-input"
-                aria-label="Repeat the passphrase"
-                placeholder="Repeat the passphrase"
+                aria-label={t("repeatPassphrase")}
+                placeholder={t("repeatPassphrase")}
                 autoComplete="new-password"
                 value={repeat}
                 disabled={busy}
@@ -334,7 +317,7 @@ export function SyncSection() {
                 disabled={busy}
                 onClick={handleSetPassphrase}
               >
-                Encrypt
+                {t("encrypt")}
               </button>
             </div>
           </>
