@@ -1,0 +1,173 @@
+.fk-welcome {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.fk-welcome__header {
+  margin-bottom: 28px;
+  text-align: center;
+}
+
+.fk-welcome__logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 11px;
+}
+
+.fk-welcome__title {
+  margin: 12px 0 6px;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.fk-welcome__lead {
+  max-width: 460px;
+  margin: 0 auto;
+  color: var(--fk-text-muted);
+  font-size: 14px;
+}
+
+/* --- a highlight with its bubble, the way a page shows one --------------- */
+
+.fk-demo {
+  margin: 0 0 28px;
+  padding: 24px 24px 20px;
+  border: 1px solid var(--fk-divider);
+  border-radius: 12px;
+  background: var(--fk-surface-sunken);
+}
+
+.fk-demo__bubble {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border-top: 3px solid #f5c96b;
+  border-radius: 8px;
+  background: var(--fk-surface);
+  box-shadow:
+    rgba(15, 15, 15, 0.05) 0 0 0 1px,
+    rgba(15, 15, 15, 0.1) 0 3px 6px;
+  font-size: 13.5px;
+}
+
+/* The tail points down at the start of the highlight. */
+.fk-demo__bubble::after {
+  position: absolute;
+  top: 100%;
+  left: 16px;
+  width: 0;
+  height: 0;
+  border-top: 7px solid var(--fk-surface);
+  border-right: 6px solid transparent;
+  border-left: 6px solid transparent;
+  content: "";
+}
+
+.fk-demo__text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+.fk-demo__mark {
+  padding: 0.1em 0;
+  border-radius: 2px;
+  background: #fdecc8;
+  color: #37352f;
+}
+
+/* --- how a note is made -------------------------------------------------- */
+
+.fk-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0 0 24px;
+  padding: 0;
+  list-style: none;
+}
+
+.fk-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.fk-step__number {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--fk-accent);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.fk-step__title {
+  margin: 1px 0 2px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.fk-step__body {
+  margin: 0;
+  color: var(--fk-text-muted);
+  font-size: 13.5px;
+}
+
+/* --- what would otherwise surprise, and where the notes live ------------- */
+
+.fk-welcome__tips {
+  margin: 0 0 20px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: var(--fk-surface-sunken);
+  color: var(--fk-text-muted);
+  font-size: 13px;
+}
+
+.fk-welcome__tips p {
+  margin: 0;
+}
+
+.fk-welcome__tips p + p {
+  margin-top: 6px;
+}
+
+.fk-welcome__card {
+  padding: 18px 20px;
+  border: 1px solid var(--fk-divider);
+  border-radius: 10px;
+}
+
+.fk-welcome__card-title {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.fk-welcome__card-body {
+  margin: 0 0 14px;
+  color: var(--fk-text-muted);
+  font-size: 13px;
+}
+
+.fk-welcome__button {
+  padding: 7px 14px;
+  border: 1px solid var(--fk-divider);
+  border-radius: 7px;
+  background: var(--fk-surface);
+  color: var(--fk-text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.fk-welcome__button:hover {
+  background: var(--fk-hover);
+}
