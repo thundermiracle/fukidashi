@@ -46,6 +46,14 @@
   },
   "noNotesAnywhere": { "message": "まだメモがありません" },
   "noNotesAnywhereHint": { "message": "メモを付けたページがここに集まります。" },
+  "reloadToAnnotate": {
+    "message": "このタブは Fukidashi を入れる前（または更新前）から開いていました。再読み込みするとメモを付けられます。"
+  },
+  "reloadTab": { "message": "再読み込み" },
+  "cannotAnnotate": { "message": "このページにはメモを付けられません" },
+  "cannotAnnotateHint": {
+    "message": "ブラウザの設定画面や拡張機能ストアなど、拡張機能が動けないページです。"
+  },
   "backToAllPages": { "message": "すべてのページに戻る" },
   "openThisPage": { "message": "このページを開く" },
   "openUrl": { "message": "{url} を開く" },

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatPagePath, formatPageUrl, normalizePageUrl, pageHost } from "./url";
+import { canAnnotateUrl, formatPagePath, formatPageUrl, normalizePageUrl, pageHost } from "./url";
 
 describe("normalizePageUrl", () => {
   it("drops the hash so in-page links share one set of notes", () => {
@@ -77,5 +77,32 @@ describe("pageHost", () => {
 describe("formatPagePath", () => {
   it("is what tells two pages of one site apart", () => {
     expect(formatPagePath("https://example.com/docs/intro?page=2")).toBe("/docs/intro?page=2");
+  });
+});
+
+describe("canAnnotateUrl", () => {
+  it("takes any web page", () => {
+    expect(canAnnotateUrl("https://example.com/docs")).toBe(true);
+    expect(canAnnotateUrl("http://localhost:3000/")).toBe(true);
+  });
+
+  it("knows the browser's own pages carry no notes", () => {
+    expect(canAnnotateUrl("chrome://extensions/")).toBe(false);
+    expect(canAnnotateUrl("about:addons")).toBe(false);
+    expect(canAnnotateUrl("chrome-extension://abc/options.html")).toBe(false);
+    expect(canAnnotateUrl("file:///Users/me/notes.html")).toBe(false);
+    expect(canAnnotateUrl("not a url")).toBe(false);
+  });
+
+  it("knows the extension stores keep extensions out", () => {
+    expect(canAnnotateUrl("https://chromewebstore.google.com/detail/abc")).toBe(false);
+    expect(canAnnotateUrl("https://chrome.google.com/webstore/detail/abc")).toBe(false);
+    expect(canAnnotateUrl("https://addons.mozilla.org/en-US/firefox/")).toBe(false);
+    expect(canAnnotateUrl("https://microsoftedge.microsoft.com/addons/detail/abc")).toBe(false);
+  });
+
+  it("does not mistake the rest of those sites for their stores", () => {
+    expect(canAnnotateUrl("https://chrome.google.com/")).toBe(true);
+    expect(canAnnotateUrl("https://microsoftedge.microsoft.com/")).toBe(true);
   });
 });

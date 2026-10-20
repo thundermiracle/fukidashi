@@ -301,6 +301,40 @@
 
 /* --- empty state -------------------------------------------------------- */
 
+/* The tab in front was open before the extension was: one click reloads it. */
+.fk-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 10px 0;
+  padding: 8px 10px;
+  border-radius: 7px;
+  background: var(--fk-surface-sunken);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.fk-notice__text {
+  flex: 1;
+  margin: 0;
+}
+
+.fk-notice__action {
+  flex: none;
+  padding: 4px 10px;
+  border: none;
+  border-radius: 5px;
+  background: var(--fk-accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.fk-notice__action:hover {
+  background: #1a6fc4;
+}
+
 .fk-empty {
   display: flex;
   flex-direction: column;

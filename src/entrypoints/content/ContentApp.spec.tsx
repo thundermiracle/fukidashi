@@ -2,7 +2,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Note, PageTitle } from "@/core";
-import { FOCUS_NOTE } from "@/services/messages";
+import { FOCUS_NOTE, PING } from "@/services/messages";
 import { createFakeChromeI18n } from "@/testing/fakeChromeI18n";
 import { createFakeChromeStorage } from "@/testing/fakeChromeStorage";
 import { ContentApp } from "./ContentApp";
@@ -12,7 +12,13 @@ const PAGE_HTML = '<p id="page">The quick brown fox jumps over the lazy dog.</p>
 let storage: ReturnType<typeof createFakeChromeStorage>;
 let container: HTMLDivElement;
 let root: Root | null = null;
-let messageListeners: Array<(message: unknown) => void>;
+type MessageListener = (
+  message: unknown,
+  sender?: unknown,
+  sendResponse?: (answer: unknown) => void,
+) => void;
+
+let messageListeners: MessageListener[];
 
 /** Lets React flush effects and the fake storage settle. */
 async function settle(ms = 5) {
@@ -112,8 +118,8 @@ beforeEach(() => {
     ...createFakeChromeI18n().chrome,
     runtime: {
       onMessage: {
-        addListener: (listener: (message: unknown) => void) => messageListeners.push(listener),
-        removeListener: (listener: (message: unknown) => void) => {
+        addListener: (listener: MessageListener) => messageListeners.push(listener),
+        removeListener: (listener: MessageListener) => {
           messageListeners = messageListeners.filter((known) => known !== listener);
         },
       },
@@ -215,6 +221,17 @@ describe("ContentApp", () => {
       "the note the popup points at",
     );
     expect(document.querySelector("mark")?.getAttribute("data-fukidashi-active")).toBe("true");
+  });
+
+  it("answers the popup when it asks whether the page is there", async () => {
+    await renderApp();
+
+    const answers: unknown[] = [];
+    for (const listener of messageListeners) {
+      listener({ type: PING }, {}, (answer) => answers.push(answer));
+    }
+
+    expect(answers).toEqual([true]);
   });
 
   it("tells a page translator to leave its own panels alone", async () => {
