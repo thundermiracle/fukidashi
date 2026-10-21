@@ -110,7 +110,9 @@
   `WXT_GOOGLE_CLIENT_ID` repository variable (Settings → Secrets and variables → Actions →
   Variables). The id is public, so it is a variable rather than a secret; without it every
   released build's Connect button refuses.
-- What the store forms ask, and what to answer, is in `docs/store-disclosures.md`.
+- What the store forms ask, and what to answer, is in `docs/store-disclosures.md`; the
+  listing text and screenshots are in `docs/store-listing.md`. A release that changes what
+  the extension does or which permissions it asks for updates both before it is submitted.
 
 ## Security & Configuration Tips
 - Extension settings live in `wxt.config.ts`; keep permissions minimal. `identity` and
