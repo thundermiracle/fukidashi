@@ -1,6 +1,6 @@
 # Privacy Policy for Fukidashi
 
-**Last updated: October 10, 2026**
+**Last updated: October 21, 2026**
 
 Fukidashi keeps your notes on your device. If you choose to sync them, it also
 keeps a copy in your own Google Drive account for your other browsers to read.
@@ -16,7 +16,9 @@ When you highlight text or write a note, Fukidashi saves:
   used to find the highlight again on your next visit,
 - the URL and title of the page the note belongs to,
 - when the note was written, edited or deleted,
-- one on/off setting for the extension.
+- one on/off setting for the extension,
+- whether you have answered the one-time request to rate the extension in its
+  store, and when.
 
 All of this is stored locally in your browser through `chrome.storage.local`.
 Unless you switch syncing on, it never leaves your device.
@@ -26,7 +28,8 @@ Unless you switch syncing on, it never leaves your device.
 Sync is off until you connect Google Drive on the settings page. Once you do:
 
 - Fukidashi writes your notes — everything listed above except the on/off
-  setting, plus a marker for each deleted note so that a deletion carries
+  setting and the answer to the rating request, plus a marker for each
+  deleted note so that a deletion carries
   across — to a hidden application folder in your own Google Drive
   (`appDataFolder`). Only Fukidashi can read that folder; it does not appear
   among your Drive files. It counts towards your Drive storage, as do the

@@ -69,6 +69,10 @@
   "updateToSync": { "message": "同期には更新が必要" },
   "syncedAgo": { "message": "同期: {age}" },
   "notSyncedYet": { "message": "未同期" },
+  "reviewAsk": {
+    "message": "Fukidashi はお役に立っていますか？ストアで評価していただけると、ほかの人が見つけやすくなります。"
+  },
+  "reviewRate": { "message": "評価する" },
 
   "settingsTitle": { "message": "Fukidashi の設定" },
   "sectionSync": { "message": "同期" },
