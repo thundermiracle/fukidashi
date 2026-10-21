@@ -180,5 +180,36 @@
   },
   "signInFirst": { "message": "先にサインインしてください。" },
   "passphraseSetFailed": { "message": "パスフレーズを設定できませんでした。" },
-  "passphraseRemoveFailed": { "message": "パスフレーズを削除できませんでした。" }
+  "passphraseRemoveFailed": { "message": "パスフレーズを削除できませんでした。" },
+
+  "welcomeTitle": { "message": "Fukidashi へようこそ" },
+  "welcomeLead": {
+    "message": "Webページの文章にハイライトを引いて、吹き出しでメモを残せます。次にそのページを開いたときも、同じ場所に残っています。"
+  },
+  "welcomeDemoHighlight": { "message": "読んだ文章の横に一言書いておけば、" },
+  "welcomeDemoRest": { "message": "次に開いたときもそこに残っています。" },
+  "welcomeDemoMemo": { "message": "あとで見返す" },
+  "welcomeSelectTitle": { "message": "文章を選ぶ" },
+  "welcomeSelectBody": {
+    "message": "Webページの文章を選択すると、すぐ横に小さなツールバーが出ます。"
+  },
+  "welcomeMarkTitle": { "message": "色を選ぶか、メモを書く" },
+  "welcomeMarkBody": {
+    "message": "色を押すとハイライトが引かれます。「{addNote}」を押すとメモ欄が開きます。"
+  },
+  "welcomeReadTitle": { "message": "カーソルを合わせて読む" },
+  "welcomeReadBody": {
+    "message": "ハイライトにカーソルを合わせると、メモが吹き出しで開きます。クリックすると開いたままになり、編集や削除ができます。"
+  },
+  "welcomeOpenTabs": {
+    "message": "すでに開いていたタブは、一度再読み込みすると使えるようになります。"
+  },
+  "welcomePin": {
+    "message": "ブラウザの拡張機能メニューから Fukidashi をツールバーに固定しておくと、いま見ているページのメモや、メモを付けたすべてのページをすぐに開けます。"
+  },
+  "welcomePrivacyTitle": { "message": "メモはあなたの手元に" },
+  "welcomePrivacyBody": {
+    "message": "メモはこのブラウザの中に保存され、Fukidashi への会員登録は要りません。他のブラウザでも使いたいときは、設定から自分の Google ドライブに接続できます。間に開発者のサーバーは挟みません。"
+  },
+  "welcomeOpenSettings": { "message": "設定を開く" }
 }

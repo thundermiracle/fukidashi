@@ -2,7 +2,10 @@
 
 ## Project Structure & Module Organization
 - `src/` contains the extension source code.
-- `src/entrypoints/` defines extension entrypoints (content, popup, etc.).
+- `src/entrypoints/` defines extension entrypoints (content, popup, etc.). `welcome/` is the
+  page a new user is shown once: the background opens it on a first install only
+  (`src/services/welcome.ts`), and never in a dev build, which installs afresh on every
+  start; open `/welcome.html` to see it there.
 - `src/core/` holds pure logic — note types, text anchoring, formatting; tests live alongside as `.spec.ts`.
 - `src/components/` contains React UI pieces; `src/services/` hosts shared service logic
   (storage, highlight rendering, messaging).

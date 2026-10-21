@@ -176,5 +176,36 @@
   },
   "signInFirst": { "message": "Sign in first." },
   "passphraseSetFailed": { "message": "Could not set the passphrase." },
-  "passphraseRemoveFailed": { "message": "Could not remove the passphrase." }
+  "passphraseRemoveFailed": { "message": "Could not remove the passphrase." },
+
+  "welcomeTitle": { "message": "Welcome to Fukidashi" },
+  "welcomeLead": {
+    "message": "Highlight what you read on any web page and leave notes in speech bubbles. They are where you left them the next time you open the page."
+  },
+  "welcomeDemoHighlight": { "message": "Write a word next to what you read," },
+  "welcomeDemoRest": { "message": " and it is still there the next time you come back." },
+  "welcomeDemoMemo": { "message": "Read this again later" },
+  "welcomeSelectTitle": { "message": "Select text" },
+  "welcomeSelectBody": {
+    "message": "Select a few words on any web page, and a small toolbar appears next to them."
+  },
+  "welcomeMarkTitle": { "message": "Pick a color, or write a note" },
+  "welcomeMarkBody": {
+    "message": "A color highlights the words. “{addNote}” opens a box for a memo."
+  },
+  "welcomeReadTitle": { "message": "Hover to read" },
+  "welcomeReadBody": {
+    "message": "Hover a highlight to read its note in a bubble. Click it to keep the bubble open, and to edit or delete the note."
+  },
+  "welcomeOpenTabs": {
+    "message": "Tabs that were already open need one reload before they take notes."
+  },
+  "welcomePin": {
+    "message": "Pin Fukidashi to the toolbar from the browser's extensions menu: its button lists the notes of the page you are on, and every page you have annotated."
+  },
+  "welcomePrivacyTitle": { "message": "Your notes stay yours" },
+  "welcomePrivacyBody": {
+    "message": "They are kept in this browser, and there is no account with us to sign up for. To have them in your other browsers too, connect your own Google Drive in the settings; there is no server of ours in between."
+  },
+  "welcomeOpenSettings": { "message": "Open settings" }
 }
