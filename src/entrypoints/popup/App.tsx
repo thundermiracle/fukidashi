@@ -5,6 +5,7 @@ import { NoteList } from "@/components/NoteList";
 import { SiteList } from "@/components/SiteList";
 import { ToggleSwitch } from "@/components/ToggleSwitch";
 import {
+  canAnnotateUrl,
   formatPagePath,
   formatPageUrl,
   groupBySite,
@@ -16,7 +17,7 @@ import {
 } from "@/core";
 import { setPendingFocus } from "@/services/focus";
 import { formatAge, t, tCount } from "@/services/i18n";
-import { requestFocusNote } from "@/services/messages";
+import { pingPage, requestFocusNote } from "@/services/messages";
 import { deleteNote, loadAllPageNotes, watchAllNotes } from "@/services/notes";
 import { loadSettings, saveSettings } from "@/services/settings";
 import {
@@ -31,6 +32,23 @@ import "./App.css";
 
 function notesOf(pages: PageNotes[], url: string): Note[] {
   return pages.find((page) => page.url === url)?.notes ?? [];
+}
+
+/**
+ * What the page in front of the user can do with notes: take them; take them
+ * once reloaded, having been open since before the extension was installed
+ * or updated; or never, being the browser's own or an extension store.
+ */
+type PageReach = "ready" | "needsReload" | "closed";
+
+async function reachOf(tab: chrome.tabs.Tab | undefined): Promise<PageReach> {
+  if (tab?.id === undefined) return "closed";
+  if (await pingPage(tab.id)) return "ready";
+  // Firefox puts the content script into the tabs already open when it
+  // installs or updates one, so a page there that does not answer is one
+  // extensions are kept out of, and a reload would not change that.
+  if (import.meta.env.FIREFOX) return "closed";
+  return tab.url && canAnnotateUrl(tab.url) ? "needsReload" : "closed";
 }
 
 /** The footer's word on syncing: where it stands, and whether it needs the user. */
@@ -69,16 +87,18 @@ function App() {
   /** How this browser syncs, and how that is going; nothing is shown while it does not. */
   const [syncConfig, setSyncConfig] = useState<SyncConfig | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(DEFAULT_SYNC_STATUS);
+  const [reach, setReach] = useState<PageReach>("ready");
 
   useEffect(() => {
     const load = async () => {
       try {
         const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        const [storedPages, settings, config, status] = await Promise.all([
+        const [storedPages, settings, config, status, pageReach] = await Promise.all([
           loadAllPageNotes(),
           loadSettings(),
           loadSyncConfig(),
           loadSyncStatus(),
+          reachOf(activeTab),
         ]);
 
         setTabId(activeTab?.id ?? null);
@@ -87,6 +107,7 @@ function App() {
         setEnabled(settings.enabled);
         setSyncConfig(config);
         setSyncStatus(status);
+        setReach(pageReach);
       } catch (error) {
         console.error("Fukidashi: could not read the stored notes", error);
       } finally {
@@ -153,6 +174,11 @@ function App() {
 
   const handleDeleteNote = useCallback((note: Note) => deleteNote(listedUrl, note.id), [listedUrl]);
 
+  const reloadPage = useCallback(() => {
+    if (tabId !== null) chrome.tabs.reload(tabId);
+    window.close();
+  }, [tabId]);
+
   // Backup lives on the settings page, not here: picking a file opens an OS
   // dialog, and that closes the popup before it can read what was picked.
   const openSettings = useCallback(() => {
@@ -176,18 +202,47 @@ function App() {
     if (isLoading) return <p className="fk-popup__status">{t("loading")}</p>;
 
     if (showsOnePage) {
-      return listedNotes.length > 0 ? (
-        <NoteList
-          notes={inPageOrder(listedNotes)}
-          onSelect={handleSelectNote}
-          onDelete={handleDeleteNote}
-        />
-      ) : (
-        <div className="fk-empty">
-          <BubbleIcon className="fk-empty__icon" />
-          <p className="fk-empty__title">{t("noNotesOnPage")}</p>
-          <p className="fk-empty__hint">{t("noNotesOnPageHint")}</p>
+      // Only the page in front of the user is one it can be told about.
+      const inFront = openedUrl === null;
+      const notice = inFront && reach === "needsReload" && (
+        <div className="fk-notice">
+          <p className="fk-notice__text">{t("reloadToAnnotate")}</p>
+          <button type="button" className="fk-notice__action" onClick={reloadPage}>
+            {t("reloadTab")}
+          </button>
         </div>
+      );
+
+      if (listedNotes.length > 0) {
+        return (
+          <>
+            {notice}
+            <NoteList
+              notes={inPageOrder(listedNotes)}
+              onSelect={handleSelectNote}
+              onDelete={handleDeleteNote}
+            />
+          </>
+        );
+      }
+      if (inFront && reach === "closed") {
+        return (
+          <div className="fk-empty">
+            <BubbleIcon className="fk-empty__icon" />
+            <p className="fk-empty__title">{t("cannotAnnotate")}</p>
+            <p className="fk-empty__hint">{t("cannotAnnotateHint")}</p>
+          </div>
+        );
+      }
+      return (
+        <>
+          {notice}
+          <div className="fk-empty">
+            <BubbleIcon className="fk-empty__icon" />
+            <p className="fk-empty__title">{t("noNotesOnPage")}</p>
+            <p className="fk-empty__hint">{t("noNotesOnPageHint")}</p>
+          </div>
+        </>
       );
     }
 

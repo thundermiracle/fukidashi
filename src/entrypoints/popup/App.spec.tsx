@@ -2,6 +2,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Note } from "@/core";
+import { FOCUS_NOTE, PING } from "@/services/messages";
 import { saveSyncConfig, saveSyncStatus } from "@/services/sync";
 import { createFakeChromeI18n } from "@/testing/fakeChromeI18n";
 import { createFakeChromeStorage } from "@/testing/fakeChromeStorage";
@@ -26,6 +27,7 @@ let storage: ReturnType<typeof createFakeChromeStorage>;
 let container: HTMLDivElement;
 let root: Root | null = null;
 let createTab: ReturnType<typeof vi.fn>;
+let queryTabs: ReturnType<typeof vi.fn>;
 let sendMessage: ReturnType<typeof vi.fn>;
 let reloadTab: ReturnType<typeof vi.fn>;
 let openOptionsPage: ReturnType<typeof vi.fn>;
@@ -64,7 +66,11 @@ beforeEach(async () => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   storage = createFakeChromeStorage();
   createTab = vi.fn();
-  sendMessage = vi.fn(async () => undefined);
+  queryTabs = vi.fn(async () => [{ id: TAB_ID, url: CURRENT_PAGE }]);
+  // The page in front has its content script, which answers the popup's ping.
+  sendMessage = vi.fn(async (_tabId: number, message: { type: string }) =>
+    message.type === PING ? true : undefined,
+  );
   reloadTab = vi.fn();
   openOptionsPage = vi.fn();
 
@@ -73,7 +79,7 @@ beforeEach(async () => {
     ...createFakeChromeI18n().chrome,
     runtime: { openOptionsPage },
     tabs: {
-      query: vi.fn(async () => [{ id: TAB_ID, url: CURRENT_PAGE }]),
+      query: queryTabs,
       create: createTab,
       sendMessage,
       reload: reloadTab,
@@ -99,6 +105,7 @@ afterEach(async () => {
   root = null;
   container.remove();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 describe("popup", () => {
@@ -199,7 +206,10 @@ describe("popup", () => {
     await click(container.querySelector(".fk-list__button"));
 
     expect(createTab).toHaveBeenCalledWith({ url: OTHER_PAGE });
-    expect(sendMessage).not.toHaveBeenCalled();
+    expect(sendMessage).not.toHaveBeenCalledWith(
+      TAB_ID,
+      expect.objectContaining({ type: FOCUS_NOTE }),
+    );
     // The page cannot be told directly, so the jump waits for it to load.
     expect(storage.data["fukidashi:pending-focus"]).toMatchObject({
       url: OTHER_PAGE,
@@ -233,6 +243,60 @@ describe("popup", () => {
 
     expect(openOptionsPage).toHaveBeenCalled();
     expect(window.close).toHaveBeenCalled();
+  });
+});
+
+describe("a page that cannot take notes yet", () => {
+  it("says nothing of it while the page answers", async () => {
+    await renderPopup();
+
+    expect(container.querySelector(".fk-notice")).toBeNull();
+  });
+
+  it("offers to reload a tab that was open before the extension was", async () => {
+    // sendMessage rejects when the tab has no content script.
+    sendMessage.mockRejectedValue(new Error("Receiving end does not exist"));
+    await renderPopup();
+
+    expect(container.querySelector(".fk-notice__text")?.textContent).toContain("Reload it");
+    // The list of the page's notes is still there under it.
+    expect(textsOf(".fk-list__comment")).toEqual(["on this page"]);
+
+    await click(buttonLabelled("Reload"));
+
+    expect(reloadTab).toHaveBeenCalledWith(TAB_ID);
+    expect(window.close).toHaveBeenCalled();
+  });
+
+  it("keeps the offer to the page in front", async () => {
+    sendMessage.mockRejectedValue(new Error("Receiving end does not exist"));
+    await renderPopup();
+    await click(buttonLabelled("All pages"));
+
+    expect(container.querySelector(".fk-notice")).toBeNull();
+  });
+
+  it("offers no reload in Firefox, which puts the script into open tabs itself", async () => {
+    vi.stubEnv("FIREFOX", "true");
+    queryTabs.mockResolvedValue([{ id: TAB_ID, url: "https://support.mozilla.org/" }]);
+    sendMessage.mockRejectedValue(new Error("Receiving end does not exist"));
+    await renderPopup();
+
+    expect(container.querySelector(".fk-empty__title")?.textContent).toBe(
+      "Notes can't be added to this page",
+    );
+    expect(container.querySelector(".fk-notice")).toBeNull();
+  });
+
+  it("says when the page can never take notes, and offers no reload", async () => {
+    queryTabs.mockResolvedValue([{ id: TAB_ID, url: "chrome://extensions/" }]);
+    sendMessage.mockRejectedValue(new Error("Receiving end does not exist"));
+    await renderPopup();
+
+    expect(container.querySelector(".fk-empty__title")?.textContent).toBe(
+      "Notes can't be added to this page",
+    );
+    expect(container.querySelector(".fk-notice")).toBeNull();
   });
 });
 

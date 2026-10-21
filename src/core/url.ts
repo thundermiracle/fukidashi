@@ -1,3 +1,14 @@
+/**
+ * Pages the browsers keep extensions out of, whatever they are allowed: the
+ * extension stores. Their own pages are not web pages to begin with.
+ */
+const CLOSED_PAGES = [
+  "https://chromewebstore.google.com/",
+  "https://chrome.google.com/webstore",
+  "https://addons.mozilla.org/",
+  "https://microsoftedge.microsoft.com/addons",
+];
+
 /** Google Translate serves a translated copy of a page from this domain. */
 const TRANSLATE_HOST_SUFFIX = ".translate.goog";
 /** Prefix of the query parameters that proxy adds to every translated URL. */
@@ -49,6 +60,22 @@ export function normalizePageUrl(href: string): string {
   } catch {
     return href;
   }
+}
+
+/**
+ * Whether a page could carry notes once the content script is in it: a web
+ * page could, after a reload at worst; the browser's own pages and the
+ * extension stores never can.
+ */
+export function canAnnotateUrl(href: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(href);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+  return !CLOSED_PAGES.some((page) => url.href.startsWith(page));
 }
 
 /** Short, human-readable form of a page URL, for lists in the popup. */

@@ -46,6 +46,14 @@
   },
   "noNotesAnywhere": { "message": "No notes anywhere yet" },
   "noNotesAnywhereHint": { "message": "Every page you annotate is collected here." },
+  "reloadToAnnotate": {
+    "message": "This tab was open before Fukidashi was installed or updated. Reload it to add notes."
+  },
+  "reloadTab": { "message": "Reload" },
+  "cannotAnnotate": { "message": "Notes can't be added to this page" },
+  "cannotAnnotateHint": {
+    "message": "Browsers keep extensions out of some pages, such as their own settings and the extension stores."
+  },
   "backToAllPages": { "message": "Back to all pages" },
   "openThisPage": { "message": "Open this page" },
   "openUrl": { "message": "Open {url}" },

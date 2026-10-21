@@ -15,4 +15,10 @@ export { toPageTitle } from "./title";
 export { isLiveNote, liveNotes, purgeExpiredTombstones, TOMBSTONE_TTL_MS } from "./tombstone";
 export { keepUntranslated, NO_TRANSLATE_CLASS } from "./translate";
 export * from "./types";
-export { formatPagePath, formatPageUrl, normalizePageUrl, pageHost } from "./url";
+export {
+  canAnnotateUrl,
+  formatPagePath,
+  formatPageUrl,
+  normalizePageUrl,
+  pageHost,
+} from "./url";

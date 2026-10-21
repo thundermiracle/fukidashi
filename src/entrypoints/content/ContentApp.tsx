@@ -11,6 +11,7 @@ import {
   type NoteColor,
   type TextAnchor,
 } from "@/core";
+import { answerPings } from "@/services/messages";
 import { deleteNote, saveNote } from "@/services/notes";
 import {
   type AnchorSource,
@@ -55,6 +56,8 @@ export function ContentApp() {
   // also what emphasises the highlight underneath.
   useNoteMessages(highlighter, bubble.open);
   usePendingFocus(url, highlighter, bubble.open);
+  // The popup asks before it tells the user to reload a page that says nothing.
+  useEffect(() => answerPings(), []);
 
   const toolbar = useAnchoredPosition<HTMLDivElement>(draft ? null : (selection?.range ?? null));
   const composer = useAnchoredPosition<HTMLDivElement>(draft?.target ?? null);
