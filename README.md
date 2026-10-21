@@ -1,11 +1,17 @@
-<div style="text-align: center; margin-bottom: 20px">
-  <img style="max-width: 200px" src="./src/assets/fukidashi.png" alt="Fukidashi" />
-</div>
+<p align="center">
+  <img width="160" src="./src/assets/fukidashi.png" alt="Fukidashi" />
+</p>
 
 # Fukidashi
 
 Add comments and notes to any web page. Select text, give it a color, write a
 memo — and find it again the next time you open the page.
+
+[![Chrome Web Store](https://img.shields.io/chrome-web-store/v/fnlmnompnmmkobkoooilpkeddbfdgdfd?label=Chrome%20Web%20Store)](https://chromewebstore.google.com/detail/fnlmnompnmmkobkoooilpkeddbfdgdfd)
+[![Firefox Add-ons](https://img.shields.io/amo/v/fukidashi?label=Firefox%20Add-ons)](https://addons.mozilla.org/firefox/addon/fukidashi/)
+
+No sign-up and no server of ours: the notes stay in your browser, or in your
+own Google Drive if you sync them — encrypted, if you like.
 
 ## Features
 
@@ -34,6 +40,8 @@ memo — and find it again the next time you open the page.
   file: JSON to keep as a backup and read back in later, or Markdown to drop
   into a notes app — the plain kind Notion reads, or the properties, callouts
   and highlights Obsidian understands.
+- **In your language** — the extension speaks English and Japanese, whichever
+  the browser does.
 - **Reads translations too** — a page opened through Google Translate is still
   that page, so notes taken on either belong to the same list, and highlights
   survive the text being swapped out. The memos themselves are left in the
@@ -53,8 +61,9 @@ pnpm run dev
 `pnpm run dev` opens a browser with the extension loaded by default. For Google
 sign-in, use a normally opened browser: set `disabled: true` in a local
 `web-ext.config.ts`, keep the dev server running, and load `dist/chrome-mv3-dev`
-as an unpacked extension on `chrome://extensions`. See
-[`docs/local-testing.md`](docs/local-testing.md) for the setup and redirect URIs.
+as an unpacked extension on `chrome://extensions`. The redirect URIs the OAuth
+client needs are in [`.env.example`](.env.example) and in the Google Cloud section of
+[`docs/store-disclosures.md`](docs/store-disclosures.md).
 To load a production build instead, run `pnpm run build` and add `dist/chrome-mv3`.
 
 Connecting Google Drive needs `WXT_GOOGLE_CLIENT_ID` in `.env` (see
@@ -84,6 +93,7 @@ src/
 ├── entrypoints/   content script, popup, settings page, background
 ├── testing/       Test helpers (fake chrome.storage, jsdom setup)
 └── assets/        Assets imported from code
+public/_locales/   Every word the UI shows, in English and Japanese
 public/icon/       Extension icons (picked up automatically by WXT)
 ```
 
