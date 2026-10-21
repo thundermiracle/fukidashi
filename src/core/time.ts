@@ -3,23 +3,36 @@ const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 const WEEK = 7 * DAY;
 
-/** Short, human-readable age of a note: "just now", "3h ago", "Mar 4". */
-export function formatRelativeTime(timestamp: number, now: number = Date.now()): string {
+/**
+ * How long ago something happened, in the coarsest unit still worth saying:
+ * minutes, hours or days for the last week, then the date itself. The words
+ * around the counts belong to the page's language, so they are left to it.
+ */
+export type Age =
+  | { unit: "now" }
+  | { unit: "minutes" | "hours" | "days"; count: number }
+  | { unit: "date"; date: string };
+
+export function ageOf(timestamp: number, now: number = Date.now()): Age {
   const elapsed = now - timestamp;
 
-  if (elapsed < MINUTE) return "just now";
-  if (elapsed < HOUR) return `${Math.floor(elapsed / MINUTE)}m ago`;
-  if (elapsed < DAY) return `${Math.floor(elapsed / HOUR)}h ago`;
-  if (elapsed < WEEK) return `${Math.floor(elapsed / DAY)}d ago`;
+  if (elapsed < MINUTE) return { unit: "now" };
+  if (elapsed < HOUR) return { unit: "minutes", count: Math.floor(elapsed / MINUTE) };
+  if (elapsed < DAY) return { unit: "hours", count: Math.floor(elapsed / HOUR) };
+  if (elapsed < WEEK) return { unit: "days", count: Math.floor(elapsed / DAY) };
 
   const date = new Date(timestamp);
   const sameYear = date.getFullYear() === new Date(now).getFullYear();
 
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    ...(sameYear ? {} : { year: "numeric" }),
-  });
+  // The browser's own locale already writes a date its way: "Mar 4", "4 Mar", "3月4日".
+  return {
+    unit: "date",
+    date: date.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      ...(sameYear ? {} : { year: "numeric" }),
+    }),
+  };
 }
 
 /** A timestamp as the calendar day it fell on, in UTC: "2026-03-04". */

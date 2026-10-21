@@ -1,10 +1,5 @@
-import {
-  formatCount,
-  formatPagePath,
-  formatRelativeTime,
-  lastTouched,
-  type SiteNotes,
-} from "@/core";
+import { formatPagePath, lastTouched, type SiteNotes } from "@/core";
+import { formatAge, t, tCount } from "@/services/i18n";
 import { ExternalLinkIcon } from "./icons";
 
 interface SiteListProps {
@@ -45,16 +40,16 @@ export function SiteList({ sites, onSelect, onOpen }: SiteListProps) {
                       {formatPagePath(page.url)}
                     </span>
                     <span className="fk-list__time">
-                      {formatCount(page.notes.length, "note")} ·{" "}
-                      {formatRelativeTime(lastTouched(page.notes))}
+                      {tCount("noteCount", page.notes.length)} ·{" "}
+                      {formatAge(lastTouched(page.notes))}
                     </span>
                   </span>
                 </button>
                 <button
                   type="button"
                   className="fk-icon-button fk-list__open"
-                  title="Open this page"
-                  aria-label={`Open ${page.url}`}
+                  title={t("openThisPage")}
+                  aria-label={t("openUrl", { url: page.url })}
                   onClick={() => onOpen(page.url)}
                 >
                   <ExternalLinkIcon />

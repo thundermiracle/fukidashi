@@ -1,0 +1,176 @@
+{
+  "extName": {
+    "message": "Fukidashi – Webページにハイライト＆吹き出しメモ",
+    "description": "The store title and the name in the browser's extension list. At most 75 characters."
+  },
+  "extDescription": {
+    "message": "Webページの文章にマーカーを引いて吹き出しでメモ。会員登録不要、メモはブラウザか自分の Google ドライブにだけ保存。Google 翻訳したページにも対応。",
+    "description": "The store summary. At most 132 characters."
+  },
+  "lang": {
+    "message": "ja",
+    "description": "The language tag of this catalogue, set on the pages so text is shaped for it."
+  },
+
+  "colorYellow": { "message": "黄色" },
+  "colorGreen": { "message": "緑" },
+  "colorBlue": { "message": "青" },
+  "colorPink": { "message": "ピンク" },
+  "colorPurple": { "message": "紫" },
+  "highlightIn": { "message": "{color}でハイライト" },
+  "useColor": { "message": "{color}にする" },
+  "addNote": { "message": "メモを追加" },
+  "notePlaceholder": { "message": "メモを入力…" },
+  "cancel": { "message": "キャンセル" },
+  "save": { "message": "保存" },
+  "highlightWithoutMemo": { "message": "メモなしのハイライト" },
+  "editNote": { "message": "メモを編集" },
+  "deleteNote": { "message": "メモを削除" },
+  "close": { "message": "閉じる" },
+
+  "ageJustNow": { "message": "たった今" },
+  "ageMinutes": { "message": "{count}分前" },
+  "ageHours": { "message": "{count}時間前" },
+  "ageDays": { "message": "{count}日前" },
+  "noteCount_one": { "message": "メモ{count}件" },
+  "noteCount_other": { "message": "メモ{count}件" },
+  "pageCount_one": { "message": "{count}ページ" },
+  "pageCount_other": { "message": "{count}ページ" },
+  "notesOnPages": { "message": "{pages}・{notes}" },
+
+  "noPageOpen": { "message": "開いているページがありません" },
+  "loading": { "message": "読み込み中…" },
+  "noNotesOnPage": { "message": "このページにはまだメモがありません" },
+  "noNotesOnPageHint": {
+    "message": "ページの文章を選択して、色を選ぶかメモを書いてください。"
+  },
+  "noNotesAnywhere": { "message": "まだメモがありません" },
+  "noNotesAnywhereHint": { "message": "メモを付けたページがここに集まります。" },
+  "backToAllPages": { "message": "すべてのページに戻る" },
+  "openThisPage": { "message": "このページを開く" },
+  "openUrl": { "message": "{url} を開く" },
+  "settings": { "message": "設定" },
+  "tabThisPage": { "message": "このページ" },
+  "tabAllPages": { "message": "すべてのページ" },
+  "showHighlights": { "message": "ハイライトを表示" },
+  "syncSettings": { "message": "同期の設定" },
+  "syncing": { "message": "同期中…" },
+  "signInToSync": { "message": "同期にはサインインが必要" },
+  "enterPassphraseToSync": { "message": "同期にはパスフレーズが必要" },
+  "syncFailed": { "message": "同期に失敗しました" },
+  "updateToSync": { "message": "同期には更新が必要" },
+  "syncedAgo": { "message": "同期: {age}" },
+  "notSyncedYet": { "message": "未同期" },
+
+  "settingsTitle": { "message": "Fukidashi の設定" },
+  "sectionSync": { "message": "同期" },
+  "sectionBackup": { "message": "バックアップ" },
+  "sectionMarkdown": { "message": "Markdown" },
+  "exportTitle": { "message": "メモをファイルに保存" },
+  "exportBody": {
+    "message": "いま開いていないページの分も含め、すべてのメモを1つの JSON ファイルに書き出します。"
+  },
+  "exportButton": { "message": "書き出す" },
+  "savedPages": { "message": "{pages}分のメモを保存しました。" },
+  "exportFailed": { "message": "メモを保存できませんでした。" },
+  "importTitle": { "message": "ファイルからメモを読み込む" },
+  "importBody": {
+    "message": "ファイルの内容を、このブラウザにあるメモに追加します。ここにあるメモが置き換えられることはありません。両方で編集したメモは後から書いた方が残り、どちらかで削除したメモは削除されたままです。"
+  },
+  "importButton": { "message": "読み込む" },
+  "mergedPages": { "message": "ファイルから{pages}分のメモを取り込みました。" },
+  "importFailed": { "message": "そのファイルを読み込めませんでした。" },
+  "importNotJson": { "message": "このファイルは JSON として読み込めません。" },
+  "importNotExport": {
+    "message": "このファイルは Fukidashi の書き出しファイルではないか、一部が壊れています。"
+  },
+  "importNewerVersion": {
+    "message": "このファイルは新しいバージョンの Fukidashi で書き出されています。"
+  },
+  "markdownTitle": { "message": "メモをノートアプリへ" },
+  "markdownBody": {
+    "message": "すべてのメモを、書いたページごとにまとめた1つの Markdown ファイルです。Notion には標準の Markdown で、Obsidian には Obsidian が解釈できるプロパティ・コールアウト・ハイライトを付けて書き出します。読むためのファイルなので、読み込みに使えるのは上の JSON ファイルだけです。"
+  },
+  "markdownFormat": { "message": "形式" },
+  "markdownExportButton": { "message": "Markdown を書き出す" },
+  "savedNotesFor": { "message": "{notes}を {app} 向けに書き出しました。" },
+  "markdownFailed": { "message": "Markdown を書き出せませんでした。" },
+
+  "exportDocumentTitle": { "message": "Fukidashi のメモ" },
+  "exportColorYellow": { "message": "黄色" },
+  "exportColorGreen": { "message": "緑" },
+  "exportColorBlue": { "message": "青" },
+  "exportColorPink": { "message": "ピンク" },
+  "exportColorPurple": { "message": "紫" },
+  "exportSummary": { "message": "{pages}・{notes}（{day} に書き出し）" },
+
+  "syncIntroTitle": { "message": "どのブラウザでも同じメモを" },
+  "syncIntroBody": {
+    "message": "Google ドライブに接続すると、ここで書いたメモが、接続した他のブラウザにも届きます。編集や削除も反映されます。保存先はあなた自身の Google ドライブ内にある、Fukidashi だけが読める非表示フォルダです。間に開発者のサーバーはありません。"
+  },
+  "connectDrive": { "message": "Google ドライブに接続" },
+  "connectedAs": { "message": "{email} で接続中です。{status}" },
+  "connected": { "message": "接続中です。{status}" },
+  "driveSignedOut": {
+    "message": "同期を続けるには、Google にもう一度サインインしてください。"
+  },
+  "driveWrongPassphrase": {
+    "message": "このブラウザのパスフレーズは、ドライブのコピーを暗号化したものと違います。同期を続けるには、そのパスフレーズを入力してください。"
+  },
+  "driveNeedsPassphrase": {
+    "message": "ドライブのコピーは暗号化されています。同期を続けるには、そのパスフレーズを入力してください。"
+  },
+  "driveOutdated": {
+    "message": "ドライブのコピーは新しいバージョンの Fukidashi で書かれています。同期を続けるには拡張機能を更新してください。"
+  },
+  "syncCouldNot": { "message": "同期できませんでした（{error}）。自動で再試行します。" },
+  "syncSomethingWrong": { "message": "原因不明のエラー" },
+  "lastSyncedAgo": { "message": "最終同期: {age}" },
+  "notSyncedYetSentence": { "message": "まだ同期していません。" },
+  "signIn": { "message": "サインイン" },
+  "syncNow": { "message": "今すぐ同期" },
+  "disconnect": { "message": "接続を解除" },
+  "alsoDeleteCopy": { "message": "Google ドライブのコピーも削除する" },
+  "encryptionHeading": { "message": "暗号化" },
+  "passphrase": { "message": "パスフレーズ" },
+  "repeatPassphrase": { "message": "パスフレーズ（確認用）" },
+  "unlock": { "message": "ロックを解除" },
+  "encrypt": { "message": "暗号化" },
+  "removePassphrase": { "message": "パスフレーズを削除" },
+  "encryptedBody": {
+    "message": "パスフレーズで暗号化しています。接続する他のブラウザでもこのパスフレーズが必要です。削除するとドライブのコピーは暗号化なしで書き戻されます（まだパスフレーズを持つブラウザがあれば、そこで再び暗号化されます）。"
+  },
+  "plainBody": {
+    "message": "ドライブのコピーは暗号化されていません。パスフレーズを設定すると、メモはこのブラウザを出る前に暗号化されます。接続するすべてのブラウザでこのパスフレーズが必要になり、忘れると復元できません。"
+  },
+  "connectFailed": { "message": "Google ドライブに接続できませんでした。" },
+  "signInCancelled": { "message": "サインインがキャンセルされました。" },
+  "dataCollectionRefused": {
+    "message": "この許可がないと、メモをこのデバイスの外に送れません。"
+  },
+  "disconnectedDeleted": {
+    "message": "接続を解除しました。Google ドライブのコピーは削除し、このブラウザのメモは残しています。"
+  },
+  "disconnectedKept": {
+    "message": "接続を解除しました。Google ドライブのコピーも、このブラウザのメモもそのまま残っています。"
+  },
+  "disconnectSignInFirst": {
+    "message": "コピーを削除するには、先にサインインしてください。削除せずに接続を解除することもできます。"
+  },
+  "disconnectFailed": { "message": "接続を解除できませんでした。" },
+  "enterPassphrase": { "message": "パスフレーズを入力してください。" },
+  "passphrasesDiffer": { "message": "2つのパスフレーズが一致しません。" },
+  "passphraseAccepted": { "message": "パスフレーズを確認しました。同期を再開します。" },
+  "encryptedNow": {
+    "message": "暗号化しました。これからメモは暗号化されてからこのブラウザを出ます。接続する他のブラウザでは、このパスフレーズを求められます。"
+  },
+  "passphraseRemoved": {
+    "message": "パスフレーズを削除しました。ドライブのコピーは暗号化せずに保存されます。ただし、まだパスフレーズを持つブラウザがあれば、そこで再び暗号化されます。"
+  },
+  "passphraseNotThatOne": {
+    "message": "ドライブのコピーを暗号化したパスフレーズではありません。"
+  },
+  "signInFirst": { "message": "先にサインインしてください。" },
+  "passphraseSetFailed": { "message": "パスフレーズを設定できませんでした。" },
+  "passphraseRemoveFailed": { "message": "パスフレーズを削除できませんでした。" }
+}

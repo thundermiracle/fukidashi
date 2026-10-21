@@ -6,6 +6,13 @@
 - `src/core/` holds pure logic — note types, text anchoring, formatting; tests live alongside as `.spec.ts`.
 - `src/components/` contains React UI pieces; `src/services/` hosts shared service logic
   (storage, highlight rendering, messaging).
+- Every word the UI shows lives in `public/_locales/{en,ja}/messages.json` (`en` is the
+  `default_locale`, and the manifest's name and description come from there too, which
+  is how each store lists the extension in its own language). Code reads them through
+  `t`, `tCount` and `formatAge` in `src/services/i18n.ts`: `{name}` slots are filled in
+  there, and a count picks between `<stem>_one` and `<stem>_other`. Call them while
+  rendering, never at module scope. A new message goes into both catalogues; core code
+  has no language, so its errors are put into words by the page that shows them.
 - `src/services/sync/` holds the cross-device sync layer: the `SyncBackend` interface,
   the pull-merge-push engine, its scheduler, and the per-device config and status
   (`fukidashi:sync:config`, `fukidashi:sync-status`, and `fukidashi:sync:checkpoint`,
@@ -30,7 +37,8 @@
   edit; a copy it cannot open is the `wrongPassphrase` state. Google Drive is the only
   sync backend. The design is in `docs/sync-design.md`.
 - `src/testing/` holds test helpers: fakes for `chrome.storage`, `chrome.alarms`,
-  `chrome.identity`, the runtime's start-up events, the sync backend and Google Drive
+  `chrome.identity`, `chrome.i18n` (reading the real catalogues, English unless asked
+  otherwise), the runtime's start-up events, the sync backend and Google Drive
   (behind a `fetch` of its own), and the Vitest setup file that fills in `Range.getBoundingClientRect` and
   `Element.scrollIntoView`, which jsdom does not implement.
 - `src/assets/` stores assets imported from code; `public/` stores files copied as-is
@@ -62,7 +70,8 @@
 - Framework: Vitest with the `jsdom` environment and globals enabled.
 - Co-locate tests with the module under test.
 - Stub `chrome.*` APIs with `vi.stubGlobal` and `createFakeChromeStorage`
-  (see `src/services/notes.spec.ts`).
+  (see `src/services/notes.spec.ts`). Anything that renders words also needs
+  `createFakeChromeI18n().chrome` in the stub; tests assert the English messages.
 - `src/entrypoints/content/ContentApp.spec.tsx` drives the real UI in jsdom; extend it when
   a change affects the selection, composer or bubble flow.
 - `src/entrypoints/popup/App.spec.tsx` does the same for the popup; extend it when a change

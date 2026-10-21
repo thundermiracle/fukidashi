@@ -1,0 +1,172 @@
+{
+  "extName": {
+    "message": "Fukidashi – Private Web Highlighter & Notes",
+    "description": "The store title and the name in the browser's extension list. At most 75 characters."
+  },
+  "extDescription": {
+    "message": "Highlight text and add notes on any web page. No sign-up, no server of ours: sync via your own Google Drive, encrypted if you like.",
+    "description": "The store summary. At most 132 characters."
+  },
+  "lang": {
+    "message": "en",
+    "description": "The language tag of this catalogue, set on the pages so text is shaped for it."
+  },
+
+  "colorYellow": { "message": "yellow" },
+  "colorGreen": { "message": "green" },
+  "colorBlue": { "message": "blue" },
+  "colorPink": { "message": "pink" },
+  "colorPurple": { "message": "purple" },
+  "highlightIn": { "message": "Highlight {color}" },
+  "useColor": { "message": "Use {color}" },
+  "addNote": { "message": "Add note" },
+  "notePlaceholder": { "message": "Add a note…" },
+  "cancel": { "message": "Cancel" },
+  "save": { "message": "Save" },
+  "highlightWithoutMemo": { "message": "Highlight without a memo" },
+  "editNote": { "message": "Edit note" },
+  "deleteNote": { "message": "Delete note" },
+  "close": { "message": "Close" },
+
+  "ageJustNow": { "message": "just now" },
+  "ageMinutes": { "message": "{count}m ago" },
+  "ageHours": { "message": "{count}h ago" },
+  "ageDays": { "message": "{count}d ago" },
+  "noteCount_one": { "message": "{count} note" },
+  "noteCount_other": { "message": "{count} notes" },
+  "pageCount_one": { "message": "{count} page" },
+  "pageCount_other": { "message": "{count} pages" },
+  "notesOnPages": { "message": "{notes} on {pages}" },
+
+  "noPageOpen": { "message": "No page open" },
+  "loading": { "message": "Loading…" },
+  "noNotesOnPage": { "message": "No notes on this page yet" },
+  "noNotesOnPageHint": {
+    "message": "Select any text on the page, then pick a color or write a note."
+  },
+  "noNotesAnywhere": { "message": "No notes anywhere yet" },
+  "noNotesAnywhereHint": { "message": "Every page you annotate is collected here." },
+  "backToAllPages": { "message": "Back to all pages" },
+  "openThisPage": { "message": "Open this page" },
+  "openUrl": { "message": "Open {url}" },
+  "settings": { "message": "Settings" },
+  "tabThisPage": { "message": "This page" },
+  "tabAllPages": { "message": "All pages" },
+  "showHighlights": { "message": "Show highlights" },
+  "syncSettings": { "message": "Sync settings" },
+  "syncing": { "message": "Syncing…" },
+  "signInToSync": { "message": "Sign in to sync" },
+  "enterPassphraseToSync": { "message": "Enter passphrase to sync" },
+  "syncFailed": { "message": "Sync failed" },
+  "updateToSync": { "message": "Update to sync" },
+  "syncedAgo": { "message": "Synced {age}" },
+  "notSyncedYet": { "message": "Not synced yet" },
+
+  "settingsTitle": { "message": "Fukidashi settings" },
+  "sectionSync": { "message": "Sync" },
+  "sectionBackup": { "message": "Backup" },
+  "sectionMarkdown": { "message": "Markdown" },
+  "exportTitle": { "message": "Save your notes to a file" },
+  "exportBody": {
+    "message": "Writes every note you have, including the pages you are not looking at, to one JSON file."
+  },
+  "exportButton": { "message": "Export" },
+  "savedPages": { "message": "Saved {pages}." },
+  "exportFailed": { "message": "Could not save the notes." },
+  "importTitle": { "message": "Read notes back from a file" },
+  "importBody": {
+    "message": "Adds what the file holds to what is already here — nothing on this device is replaced. A note edited in two places keeps whichever version was written last, and a note deleted on either side stays deleted."
+  },
+  "importButton": { "message": "Import" },
+  "mergedPages": { "message": "Merged {pages} from the file." },
+  "importFailed": { "message": "Could not read that file." },
+  "importNotJson": { "message": "This file is not readable JSON." },
+  "importNotExport": {
+    "message": "This file is not a Fukidashi export, or part of it is damaged."
+  },
+  "importNewerVersion": { "message": "This file was written by a newer version of Fukidashi." },
+  "markdownTitle": { "message": "Take your notes to a notes app" },
+  "markdownBody": {
+    "message": "One Markdown file holding every note, under the page it was taken on. Notion reads plain Markdown; Obsidian gets the properties, callouts and highlights it understands. This one is written to be read — only the file above reads back in."
+  },
+  "markdownFormat": { "message": "Format" },
+  "markdownExportButton": { "message": "Export Markdown" },
+  "savedNotesFor": { "message": "Saved {notes} for {app}." },
+  "markdownFailed": { "message": "Could not write the notes as Markdown." },
+
+  "exportDocumentTitle": { "message": "Fukidashi notes" },
+  "exportColorYellow": { "message": "Yellow" },
+  "exportColorGreen": { "message": "Green" },
+  "exportColorBlue": { "message": "Blue" },
+  "exportColorPink": { "message": "Pink" },
+  "exportColorPurple": { "message": "Purple" },
+  "exportSummary": { "message": "{notes} on {pages}, exported on {day}." },
+
+  "syncIntroTitle": { "message": "Keep your notes on every browser" },
+  "syncIntroBody": {
+    "message": "Connect Google Drive and the notes you write here turn up in every other browser you connect, edits and deletions included. They go to a hidden folder in your own Google Drive that only Fukidashi can read — there is no server of ours in between."
+  },
+  "connectDrive": { "message": "Connect Google Drive" },
+  "connectedAs": { "message": "Connected as {email}. {status}" },
+  "connected": { "message": "Connected. {status}" },
+  "driveSignedOut": { "message": "Google needs you to sign in again before anything can sync." },
+  "driveWrongPassphrase": {
+    "message": "The passphrase on this browser is not the one the copy in Drive was encrypted with. Enter that one to keep syncing."
+  },
+  "driveNeedsPassphrase": {
+    "message": "The copy in Drive is encrypted. Enter its passphrase to keep syncing."
+  },
+  "driveOutdated": {
+    "message": "The copy in Drive was written by a newer version of Fukidashi. Update the extension to keep syncing."
+  },
+  "syncCouldNot": { "message": "Could not sync: {error}. Fukidashi keeps trying." },
+  "syncSomethingWrong": { "message": "something went wrong" },
+  "lastSyncedAgo": { "message": "Last synced {age}." },
+  "notSyncedYetSentence": { "message": "Not synced yet." },
+  "signIn": { "message": "Sign in" },
+  "syncNow": { "message": "Sync now" },
+  "disconnect": { "message": "Disconnect" },
+  "alsoDeleteCopy": { "message": "Also delete the copy in Google Drive" },
+  "encryptionHeading": { "message": "Encryption" },
+  "passphrase": { "message": "Passphrase" },
+  "repeatPassphrase": { "message": "Repeat the passphrase" },
+  "unlock": { "message": "Unlock" },
+  "encrypt": { "message": "Encrypt" },
+  "removePassphrase": { "message": "Remove passphrase" },
+  "encryptedBody": {
+    "message": "Encrypted with a passphrase; every other browser you connect needs it too. Removing it writes the copy in Drive back as it is — until a browser that still has the passphrase encrypts it again."
+  },
+  "plainBody": {
+    "message": "The copy in Drive holds the notes as they are. Set a passphrase and they are encrypted before they leave this browser; every browser you connect will need it, and a forgotten one cannot be recovered."
+  },
+  "connectFailed": { "message": "Could not connect Google Drive." },
+  "signInCancelled": { "message": "The sign-in was cancelled." },
+  "dataCollectionRefused": {
+    "message": "Without that permission the notes cannot leave this device."
+  },
+  "disconnectedDeleted": {
+    "message": "Disconnected. The copy in Google Drive is gone; the notes here stay."
+  },
+  "disconnectedKept": {
+    "message": "Disconnected. The copy in Google Drive stays where it is, and so do the notes here."
+  },
+  "disconnectSignInFirst": {
+    "message": "Sign in first to delete the copy, or disconnect without deleting it."
+  },
+  "disconnectFailed": { "message": "Could not disconnect." },
+  "enterPassphrase": { "message": "Enter a passphrase." },
+  "passphrasesDiffer": { "message": "The two passphrases differ." },
+  "passphraseAccepted": { "message": "Passphrase accepted. Syncing again." },
+  "encryptedNow": {
+    "message": "Encrypted. From now on the notes leave this browser encrypted, and every other browser you connect will ask for the passphrase."
+  },
+  "passphraseRemoved": {
+    "message": "Passphrase removed. The copy in Drive is stored as it is again — until a browser that still has the passphrase encrypts it back."
+  },
+  "passphraseNotThatOne": {
+    "message": "That is not the passphrase the copy in Drive was encrypted with."
+  },
+  "signInFirst": { "message": "Sign in first." },
+  "passphraseSetFailed": { "message": "Could not set the passphrase." },
+  "passphraseRemoveFailed": { "message": "Could not remove the passphrase." }
+}

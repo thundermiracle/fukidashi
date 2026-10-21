@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Note, PageTitle } from "@/core";
 import { FOCUS_NOTE } from "@/services/messages";
+import { createFakeChromeI18n } from "@/testing/fakeChromeI18n";
 import { createFakeChromeStorage } from "@/testing/fakeChromeStorage";
 import { ContentApp } from "./ContentApp";
 
@@ -108,6 +109,7 @@ beforeEach(() => {
   messageListeners = [];
   vi.stubGlobal("chrome", {
     ...storage.chrome,
+    ...createFakeChromeI18n().chrome,
     runtime: {
       onMessage: {
         addListener: (listener: (message: unknown) => void) => messageListeners.push(listener),

@@ -1,5 +1,6 @@
 import { type RefObject, useEffect, useRef } from "react";
 import type { NoteColor } from "@/core";
+import { t } from "@/services/i18n";
 import { ColorSwatches } from "./ColorSwatches";
 
 const SAVE_HINT = navigator.userAgent.includes("Mac") ? "⌘ + Enter" : "Ctrl + Enter";
@@ -62,21 +63,25 @@ export function NoteComposer({
       <textarea
         ref={inputRef}
         className="fk-input"
-        placeholder="Add a note…"
+        placeholder={t("notePlaceholder")}
         value={comment}
         rows={3}
         onChange={(event) => onCommentChange(event.target.value)}
         onKeyDown={handleKeyDown}
       />
       <div className="fk-composer__footer">
-        <ColorSwatches value={color} onSelect={onColorChange} title={(name) => `Use ${name}`} />
+        <ColorSwatches
+          value={color}
+          onSelect={onColorChange}
+          title={(name) => t("useColor", { color: name })}
+        />
         <div className="fk-composer__actions">
           <span className="fk-hint">{SAVE_HINT}</span>
           <button type="button" className="fk-button" onClick={onCancel}>
-            Cancel
+            {t("cancel")}
           </button>
           <button type="button" className="fk-button fk-button--primary" onClick={onSave}>
-            Save
+            {t("save")}
           </button>
         </div>
       </div>

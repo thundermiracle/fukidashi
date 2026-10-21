@@ -6,8 +6,11 @@ export default defineConfig({
   srcDir: "src",
   outDir: "dist",
   manifest: ({ browser, mode }) => ({
-    name: "Fukidashi",
-    description: "Add comments and notes to any web page",
+    // Both come from public/_locales, so the store lists the extension in
+    // each language it speaks; English is what a browser in any other gets.
+    name: "__MSG_extName__",
+    description: "__MSG_extDescription__",
+    default_locale: "en",
     // The version is taken from package.json, which is what the release
     // workflow bumps — a copy here would ship stale.
     // activeTab covers the popup reading the current tab's URL and messaging

@@ -1,5 +1,6 @@
 import { type RefObject, useEffect } from "react";
 import type { NoteColor } from "@/core";
+import { t } from "@/services/i18n";
 import { ColorSwatches } from "./ColorSwatches";
 import { BubbleIcon } from "./icons";
 
@@ -32,11 +33,11 @@ export function SelectionToolbar({
 
   return (
     <div ref={panelRef} className="fk-panel fk-toolbar" style={style}>
-      <ColorSwatches onSelect={onHighlight} title={(color) => `Highlight ${color}`} />
+      <ColorSwatches onSelect={onHighlight} title={(name) => t("highlightIn", { color: name })} />
       <span className="fk-divider" />
       <button type="button" className="fk-action" onClick={onAddNote}>
         <BubbleIcon />
-        Add note
+        {t("addNote")}
       </button>
     </div>
   );

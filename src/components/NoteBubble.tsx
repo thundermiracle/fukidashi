@@ -1,5 +1,6 @@
 import { type RefObject, useEffect } from "react";
-import { formatRelativeTime, type Note } from "@/core";
+import type { Note } from "@/core";
+import { formatAge, t } from "@/services/i18n";
 import { CloseIcon, PencilIcon, TrashIcon } from "./icons";
 
 interface NoteBubbleProps {
@@ -53,19 +54,24 @@ export function NoteBubble({
       {note.comment ? (
         <p className="fk-bubble__comment">{note.comment}</p>
       ) : (
-        <p className="fk-bubble__comment fk-bubble__comment--empty">Highlight without a memo</p>
+        <p className="fk-bubble__comment fk-bubble__comment--empty">{t("highlightWithoutMemo")}</p>
       )}
       <div className="fk-bubble__footer">
-        <span className="fk-bubble__time">{formatRelativeTime(note.updatedAt)}</span>
+        <span className="fk-bubble__time">{formatAge(note.updatedAt)}</span>
         <div className="fk-bubble__actions">
-          <button type="button" className="fk-icon-button" title="Edit note" onClick={onEdit}>
+          <button type="button" className="fk-icon-button" title={t("editNote")} onClick={onEdit}>
             <PencilIcon />
           </button>
-          <button type="button" className="fk-icon-button" title="Delete note" onClick={onDelete}>
+          <button
+            type="button"
+            className="fk-icon-button"
+            title={t("deleteNote")}
+            onClick={onDelete}
+          >
             <TrashIcon />
           </button>
           {pinned && (
-            <button type="button" className="fk-icon-button" title="Close" onClick={onClose}>
+            <button type="button" className="fk-icon-button" title={t("close")} onClick={onClose}>
               <CloseIcon />
             </button>
           )}
